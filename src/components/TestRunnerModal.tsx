@@ -150,6 +150,31 @@ export function TestRunnerModal({ isOpen, onClose }: TestRunnerModalProps) {
         testRes.push({ name: 'Booter Dal & Tea Match Test', passed: false, details: e.message });
       }
 
+      // Test 8: Nuts & Piece Quantity Selection Test
+      try {
+        const parsedCashew = parseLocalFoodQuery('10 kaju badam');
+        const parsedAlmond = parseLocalFoodQuery('15 kath badam');
+        const parsedPeanut = parseLocalFoodQuery('20 peanuts');
+        
+        // 10 cashews should be ~15g (not 280g)
+        const cashewOk = parsedCashew[0]?.quantityGrams === 15;
+        // 15 almonds should be ~18g (not 420g)
+        const almondOk = parsedAlmond[0]?.quantityGrams === 18;
+        // 20 peanuts should be ~16g (not 600g)
+        const peanutOk = parsedPeanut[0]?.quantityGrams === 16;
+
+        const cashewFood = foodDbService.getFoodById('nut_cashew_kaju');
+        const hasPerNutPortion = cashewFood?.standardPortions.some(p => p.grams <= 2) || false;
+
+        testRes.push({
+          name: 'Nuts & Piece Quantity Selection Test',
+          passed: cashewOk && almondOk && peanutOk && hasPerNutPortion,
+          details: `Verified piece/kernel quantity scaling: 10 cashews = 15g, 15 almonds = 18g, 20 peanuts = 16g.`,
+        });
+      } catch (e: any) {
+        testRes.push({ name: 'Nuts & Piece Quantity Test', passed: false, details: e.message });
+      }
+
       setResults(testRes);
       setIsRunning(false);
     }, 600);

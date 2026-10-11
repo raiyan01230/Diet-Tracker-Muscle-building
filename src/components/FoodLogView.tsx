@@ -7,6 +7,7 @@ import { CombinedMealBuilderModal } from './CombinedMealBuilderModal';
 import { 
   Search, 
   Plus, 
+  Minus,
   Trash2, 
   Calendar, 
   UtensilsCrossed, 
@@ -15,7 +16,9 @@ import {
   Layers,
   Star,
   ChevronRight,
-  Filter
+  Filter,
+  Scale,
+  Hash
 } from 'lucide-react';
 
 export function FoodLogView() {
@@ -25,6 +28,8 @@ export function FoodLogView() {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
   const [selectedPortionIndex, setSelectedPortionIndex] = useState<number>(0);
+  const [quantityMode, setQuantityMode] = useState<'count' | 'grams'>('count');
+  const [quantityCount, setQuantityCount] = useState<number>(1);
   const [customGrams, setCustomGrams] = useState<string>('100');
   const [mealType, setMealType] = useState<'breakfast' | 'lunch' | 'dinner' | 'snack'>('lunch');
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -45,10 +50,72 @@ export function FoodLogView() {
 
   const filteredFoods = foodDbService.searchFoods(searchQuery, selectedCategory);
 
+  const isNutOrSmallSnack = (food: FoodItem | null): boolean => {
+    if (!food) return false;
+    const cat = food.category.toLowerCase();
+    const name = food.nameEn.toLowerCase();
+    return (
+      cat.includes('nut') ||
+      cat.includes('seed') ||
+      name.includes('nut') ||
+      name.includes('badam') ||
+      name.includes('almond') ||
+      name.includes('cashew') ||
+      name.includes('peanut') ||
+      name.includes('walnut') ||
+      name.includes('pistachio') ||
+      name.includes('khejur') ||
+      name.includes('dates') ||
+      food.standardPortions.some(p => p.grams <= 5)
+    );
+  };
+
   const handleSelectFood = (food: FoodItem) => {
     setSelectedFood(food);
-    setSelectedPortionIndex(0);
-    setCustomGrams(food.standardPortions[0]?.grams.toString() || '100');
+    const nutItem = isNutOrSmallSnack(food);
+
+    // If nut or small piece food, look for single piece/kernel portion if available
+    let initialPortionIdx = 0;
+    let initialCount = 1;
+
+    if (nutItem) {
+      const singleKernelIdx = food.standardPortions.findIndex(p => p.grams <= 2.5);
+      if (singleKernelIdx !== -1) {
+        initialPortionIdx = singleKernelIdx;
+        initialCount = 10; // Default to 10 nuts for ease of use!
+      } else {
+        initialCount = 1;
+      }
+    } else {
+      initialCount = 1;
+    }
+
+    setSelectedPortionIndex(initialPortionIdx);
+    setQuantityCount(initialCount);
+    setQuantityMode('count');
+
+    const baseGrams = food.standardPortions[initialPortionIdx]?.grams || 100;
+    const totalG = Math.round(baseGrams * initialCount * 10) / 10;
+    setCustomGrams(totalG.toString());
+  };
+
+  const handleUpdateQuantityCount = (newCount: number) => {
+    const validCount = Math.max(0.1, Math.round(newCount * 10) / 10);
+    setQuantityCount(validCount);
+    if (selectedFood) {
+      const baseGrams = selectedFood.standardPortions[selectedPortionIndex]?.grams || 100;
+      const totalG = Math.round(baseGrams * validCount * 10) / 10;
+      setCustomGrams(totalG.toString());
+    }
+  };
+
+  const handleSelectPortion = (idx: number) => {
+    setSelectedPortionIndex(idx);
+    if (selectedFood) {
+      const baseGrams = selectedFood.standardPortions[idx]?.grams || 100;
+      const totalG = Math.round(baseGrams * quantityCount * 10) / 10;
+      setCustomGrams(totalG.toString());
+    }
   };
 
   const handleAddLog = (e: React.FormEvent) => {
@@ -56,7 +123,19 @@ export function FoodLogView() {
     if (!selectedFood) return;
 
     const grams = parseFloat(customGrams) || 100;
-    const portionDesc = selectedFood.standardPortions[selectedPortionIndex]?.label || `${grams}g custom portion`;
+    const portionObj = selectedFood.standardPortions[selectedPortionIndex];
+    let portionDesc = '';
+
+    if (quantityMode === 'count') {
+      if (quantityCount === 1) {
+        portionDesc = `${portionObj?.label || '1 Portion'} (${grams}g)`;
+      } else {
+        portionDesc = `${quantityCount} × ${portionObj?.label || 'Portion'} (${grams}g)`;
+      }
+    } else {
+      portionDesc = `${grams}g custom portion`;
+    }
+
     const nutrients = scaleNutrients(selectedFood.per100g, grams);
 
     addFoodLog({
@@ -71,7 +150,7 @@ export function FoodLogView() {
       nutrients,
     });
 
-    setSuccessMessage(`Successfully logged ${selectedFood.nameEn} (${selectedFood.nameBn})!`);
+    setSuccessMessage(`Successfully logged ${selectedFood.nameEn} — ${portionDesc}!`);
     setTimeout(() => setSuccessMessage(null), 3500);
     setSelectedFood(null);
   };
@@ -270,47 +349,199 @@ export function FoodLogView() {
                   </select>
                 </div>
 
+                {/* Measure Mode Toggle */}
                 <div>
-                  <label className="block text-xs font-medium text-emerald-200 mb-1">Portion Size</label>
-                  <select
-                    value={selectedPortionIndex}
-                    onChange={e => {
-                      const idx = parseInt(e.target.value);
-                      setSelectedPortionIndex(idx);
-                      setCustomGrams(selectedFood.standardPortions[idx].grams.toString());
-                    }}
-                    className="w-full bg-emerald-800 border border-emerald-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
-                  >
-                    {selectedFood.standardPortions.map((p, idx) => (
-                      <option key={idx} value={idx}>
-                        {p.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-emerald-200 mb-1">Quantity in Grams (g)</label>
-                  <input
-                    type="number"
-                    value={customGrams}
-                    onChange={e => setCustomGrams(e.target.value)}
-                    className="w-full bg-emerald-800 border border-emerald-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
-                    required
-                  />
-                </div>
-
-                <div className="bg-emerald-800/80 p-3 rounded-xl border border-emerald-700 text-xs space-y-1">
-                  <div className="font-semibold text-emerald-200">Calculated Nutrients for {customGrams}g:</div>
-                  <div className="flex justify-between text-emerald-100">
-                    <span>Calories:</span>
-                    <span className="font-bold">{scaleNutrients(selectedFood.per100g, parseFloat(customGrams) || 0).calories} kcal</span>
-                  </div>
-                  <div className="flex justify-between text-emerald-100">
-                    <span>Protein / Carbs / Fat:</span>
-                    <span>
-                      {scaleNutrients(selectedFood.per100g, parseFloat(customGrams) || 0).protein}g / {scaleNutrients(selectedFood.per100g, parseFloat(customGrams) || 0).carbs}g / {scaleNutrients(selectedFood.per100g, parseFloat(customGrams) || 0).fat}g
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-semibold text-emerald-200">
+                      How would you like to measure?
+                    </label>
+                    <span className="text-[10px] text-emerald-300 font-medium">
+                      {isNutOrSmallSnack(selectedFood) ? '🥜 Piece/Nut Count Ready' : 'Portion & Count'}
                     </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5 bg-emerald-950/60 p-1 rounded-xl border border-emerald-800">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setQuantityMode('count');
+                        const baseGrams = selectedFood.standardPortions[selectedPortionIndex]?.grams || 100;
+                        setCustomGrams((Math.round(baseGrams * quantityCount * 10) / 10).toString());
+                      }}
+                      className={`flex items-center justify-center space-x-1.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        quantityMode === 'count'
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'text-emerald-300 hover:text-white'
+                      }`}
+                    >
+                      <Hash className="w-3.5 h-3.5" />
+                      <span>How Many I Ate (সংখ্যা / পিস)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setQuantityMode('grams')}
+                      className={`flex items-center justify-center space-x-1.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        quantityMode === 'grams'
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'text-emerald-300 hover:text-white'
+                      }`}
+                    >
+                      <Scale className="w-3.5 h-3.5" />
+                      <span>Weigh in Grams (গ্রাম)</span>
+                    </button>
+                  </div>
+                </div>
+
+                {quantityMode === 'count' ? (
+                  <div className="space-y-3 bg-emerald-950/40 p-3.5 rounded-xl border border-emerald-800/80">
+                    {/* Portion Unit Dropdown */}
+                    <div>
+                      <label className="block text-[11px] font-medium text-emerald-300 mb-1">
+                        Serving Unit / Portion Size (একক)
+                      </label>
+                      <select
+                        value={selectedPortionIndex}
+                        onChange={e => handleSelectPortion(parseInt(e.target.value))}
+                        className="w-full bg-emerald-800 border border-emerald-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
+                      >
+                        {selectedFood.standardPortions.map((p, idx) => (
+                          <option key={idx} value={idx}>
+                            {p.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* How Many Eaten Stepper */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs font-semibold text-white">
+                          Quantity / How Many Eaten (কতগুলো খেয়েছেন?)
+                        </label>
+                        <span className="text-[11px] text-emerald-300 font-bold">
+                          {quantityCount} {quantityCount === 1 ? 'item' : 'items'}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center space-x-2">
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateQuantityCount(Math.max(1, quantityCount - (quantityCount > 10 ? 5 : 1)))}
+                          className="w-9 h-9 rounded-xl bg-emerald-800 hover:bg-emerald-700 active:scale-95 border border-emerald-700 flex items-center justify-center text-white transition-all font-bold text-base shadow-xs"
+                          title="Decrease count"
+                        >
+                          <Minus className="w-4 h-4" />
+                        </button>
+                        
+                        <div className="relative flex-1">
+                          <input
+                            type="number"
+                            min="0.1"
+                            step="any"
+                            value={quantityCount}
+                            onChange={e => handleUpdateQuantityCount(parseFloat(e.target.value) || 1)}
+                            className="w-full bg-emerald-900 border border-emerald-700 rounded-xl px-3 py-2 text-center text-sm font-black text-white focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                          />
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateQuantityCount(quantityCount + (quantityCount >= 10 ? 5 : 1))}
+                          className="w-9 h-9 rounded-xl bg-emerald-800 hover:bg-emerald-700 active:scale-95 border border-emerald-700 flex items-center justify-center text-white transition-all font-bold text-base shadow-xs"
+                          title="Increase count"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Quick Chips for Count */}
+                      <div className="mt-2.5">
+                        <div className="text-[10px] text-emerald-300 mb-1 font-medium">Quick Count Selection:</div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {(isNutOrSmallSnack(selectedFood) ? [1, 3, 5, 10, 15, 20, 25, 30] : [0.5, 1, 1.5, 2, 3, 4]).map(val => (
+                            <button
+                              key={val}
+                              type="button"
+                              onClick={() => handleUpdateQuantityCount(val)}
+                              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                                quantityCount === val
+                                  ? 'bg-white text-emerald-900 shadow-xs scale-105'
+                                  : 'bg-emerald-800/80 hover:bg-emerald-700 text-emerald-200 border border-emerald-700/50'
+                              }`}
+                            >
+                              {val}x
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Calculated Weight Result Banner */}
+                    <div className="bg-emerald-900/90 rounded-xl px-3.5 py-2 border border-emerald-700/60 flex items-center justify-between text-xs">
+                      <span className="text-emerald-200">Total Calculated Weight:</span>
+                      <span className="font-bold text-white text-sm bg-emerald-800/80 px-2.5 py-0.5 rounded-lg border border-emerald-700/60">
+                        {customGrams} g
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  /* Exact Grams Mode */
+                  <div className="space-y-2.5 bg-emerald-950/40 p-3.5 rounded-xl border border-emerald-800/80">
+                    <label className="block text-xs font-semibold text-emerald-200">
+                      Total Weight in Grams (স্কেল অনুযায়ী ওজন)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="1"
+                        value={customGrams}
+                        onChange={e => setCustomGrams(e.target.value)}
+                        className="w-full bg-emerald-800 border border-emerald-700 rounded-xl px-3 py-2 text-xs font-bold text-white focus:outline-none"
+                        required
+                      />
+                      <span className="absolute right-3 top-2 text-xs text-emerald-400 font-bold">g</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {[15, 28, 50, 100, 150, 200, 250].map(g => (
+                        <button
+                          key={g}
+                          type="button"
+                          onClick={() => setCustomGrams(g.toString())}
+                          className="px-2 py-0.5 bg-emerald-800/70 hover:bg-emerald-700 rounded text-[11px] text-emerald-200 font-semibold"
+                        >
+                          {g}g
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Nutrition Breakdown Card */}
+                <div className="bg-emerald-950/70 p-3.5 rounded-xl border border-emerald-700/80 text-xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-emerald-200 truncate pr-2">
+                      Nutrients ({quantityMode === 'count' && quantityCount !== 1 ? `${quantityCount} × ` : ''}{selectedFood.standardPortions[selectedPortionIndex]?.label || `${customGrams}g`}):
+                    </span>
+                    <span className="font-black text-amber-300 text-sm shrink-0">
+                      {scaleNutrients(selectedFood.per100g, parseFloat(customGrams) || 0).calories} kcal
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1.5 text-center text-[11px] pt-1 border-t border-emerald-800/80">
+                    <div className="bg-emerald-900/60 rounded p-1 border border-emerald-800/50">
+                      <div className="text-[10px] text-emerald-300">Protein</div>
+                      <div className="font-bold text-white">{scaleNutrients(selectedFood.per100g, parseFloat(customGrams) || 0).protein}g</div>
+                    </div>
+                    <div className="bg-emerald-900/60 rounded p-1 border border-emerald-800/50">
+                      <div className="text-[10px] text-emerald-300">Carbs</div>
+                      <div className="font-bold text-white">{scaleNutrients(selectedFood.per100g, parseFloat(customGrams) || 0).carbs}g</div>
+                    </div>
+                    <div className="bg-emerald-900/60 rounded p-1 border border-emerald-800/50">
+                      <div className="text-[10px] text-emerald-300">Fat</div>
+                      <div className="font-bold text-white">{scaleNutrients(selectedFood.per100g, parseFloat(customGrams) || 0).fat}g</div>
+                    </div>
+                    <div className="bg-emerald-900/60 rounded p-1 border border-emerald-800/50">
+                      <div className="text-[10px] text-emerald-300">Fibre</div>
+                      <div className="font-bold text-white">{scaleNutrients(selectedFood.per100g, parseFloat(customGrams) || 0).fibre}g</div>
+                    </div>
                   </div>
                 </div>
 

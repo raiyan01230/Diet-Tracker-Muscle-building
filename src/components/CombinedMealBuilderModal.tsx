@@ -5,6 +5,7 @@ import { scaleNutrients } from '../utils/calculations';
 import { FoodItem, NutrientValues } from '../types';
 import { 
   Plus, 
+  Minus,
   Trash2, 
   Droplet, 
   Check, 
@@ -374,13 +375,36 @@ export function CombinedMealBuilderModal({ isOpen, onClose, selectedDate }: Comb
                         )}
 
                         <div className="flex items-center space-x-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const step = (comp.foodItem.standardPortions[0]?.grams <= 3) ? 1.5 : (comp.foodItem.standardPortions[0]?.grams || 10);
+                              handleUpdateComponentGrams(comp.id, Math.max(1, Math.round((comp.quantityGrams - step) * 10) / 10));
+                            }}
+                            className="w-6 h-6 rounded-md bg-stone-100 hover:bg-stone-200 border border-stone-200 flex items-center justify-center text-stone-600 font-bold transition-all text-xs"
+                            title="Decrease quantity"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
                           <input
                             type="number"
                             min="1"
+                            step="any"
                             value={comp.quantityGrams}
                             onChange={e => handleUpdateComponentGrams(comp.id, parseFloat(e.target.value) || 1)}
-                            className="w-16 px-2 py-1.5 bg-stone-50 border border-stone-200 rounded-lg text-xs text-stone-800 text-center font-bold focus:outline-none"
+                            className="w-16 px-1.5 py-1 bg-stone-50 border border-stone-200 rounded-lg text-xs text-stone-800 text-center font-bold focus:outline-none"
                           />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const step = (comp.foodItem.standardPortions[0]?.grams <= 3) ? 1.5 : (comp.foodItem.standardPortions[0]?.grams || 10);
+                              handleUpdateComponentGrams(comp.id, Math.round((comp.quantityGrams + step) * 10) / 10);
+                            }}
+                            className="w-6 h-6 rounded-md bg-stone-100 hover:bg-stone-200 border border-stone-200 flex items-center justify-center text-stone-600 font-bold transition-all text-xs"
+                            title="Increase quantity"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
                           <span className="text-xs text-stone-500 font-semibold">g</span>
                         </div>
 

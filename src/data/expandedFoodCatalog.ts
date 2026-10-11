@@ -3308,6 +3308,9 @@ export const EXPANDED_FOOD_CATALOG: FoodItem[] = [
       minerals: { calcium: 92, iron: 4.6, zinc: 3.3, magnesium: 168, phosphorus: 85, iodine: 2, selenium: 10, copper: 0.1, potassium: 705, sodium: 18, manganese: 0.2, chromium: 2, molybdenum: 5 }
     },
     standardPortions: [
+      { label: "1 Nut / Kernel (0.8g)", grams: 0.8, description: "1 single peanut kernel" },
+      { label: "10 Nuts / Kernels (8g)", grams: 8, description: "10 peanut kernels" },
+      { label: "20 Nuts / Kernels (16g)", grams: 16, description: "20 peanut kernels" },
       { label: "1 Handful (30g)", grams: 30, description: "30g standard portion" },
       { label: "1 Small Packet (50g)", grams: 50, description: "50g standard portion" },
     ],
@@ -3317,7 +3320,7 @@ export const EXPANDED_FOOD_CATALOG: FoodItem[] = [
     id: "nut_cashew_kaju",
     nameEn: "Cashew Nuts Roasted (Kaju Badam)",
     nameBn: "কাজু বাদাম",
-    banglish: ["kaju","cashew","kaju badam"],
+    banglish: ["kaju","cashew","kaju badam","cashews"],
     category: "Nuts & Seeds" as any,
     source: "USDA FoodData Central",
     sourceUrl: "https://fdc.nal.usda.gov/",
@@ -3329,8 +3332,10 @@ export const EXPANDED_FOOD_CATALOG: FoodItem[] = [
       minerals: { calcium: 37, iron: 6.7, zinc: 5.8, magnesium: 292, phosphorus: 85, iodine: 2, selenium: 10, copper: 0.1, potassium: 660, sodium: 12, manganese: 0.2, chromium: 2, molybdenum: 5 }
     },
     standardPortions: [
+      { label: "1 Cashew Nut (1.5g)", grams: 1.5, description: "1 single cashew nut" },
+      { label: "5 Cashew Nuts (7.5g)", grams: 7.5, description: "5 cashew nuts" },
+      { label: "10 Cashew Nuts (15g)", grams: 15, description: "10 cashew nuts" },
       { label: "1 Handful (28g)", grams: 28, description: "28g standard portion" },
-      { label: "10 Pieces (15g)", grams: 15, description: "15g standard portion" },
     ],
     isVerified: true,
   },
@@ -3338,7 +3343,7 @@ export const EXPANDED_FOOD_CATALOG: FoodItem[] = [
     id: "nut_almond_kath",
     nameEn: "Almonds (Kath Badam Raw)",
     nameBn: "কাঠ বাদাম",
-    banglish: ["almond","kath badam","badam raw"],
+    banglish: ["almond","kath badam","badam raw","almonds"],
     category: "Nuts & Seeds" as any,
     source: "USDA FoodData Central",
     sourceUrl: "https://fdc.nal.usda.gov/",
@@ -3350,8 +3355,10 @@ export const EXPANDED_FOOD_CATALOG: FoodItem[] = [
       minerals: { calcium: 269, iron: 3.7, zinc: 3.1, magnesium: 270, phosphorus: 85, iodine: 2, selenium: 10, copper: 0.1, potassium: 733, sodium: 1, manganese: 0.2, chromium: 2, molybdenum: 5 }
     },
     standardPortions: [
+      { label: "1 Almond / Kernel (1.2g)", grams: 1.2, description: "1 single almond kernel" },
+      { label: "5 Almonds / Kernels (6g)", grams: 6, description: "5 almond kernels" },
+      { label: "10 Almonds / Kernels (12g)", grams: 12, description: "12g standard portion" },
       { label: "1 Handful / 23 Kernels (28g)", grams: 28, description: "28g standard portion" },
-      { label: "10 Kernels (12g)", grams: 12, description: "12g standard portion" },
     ],
     isVerified: true,
   },
@@ -3371,6 +3378,7 @@ export const EXPANDED_FOOD_CATALOG: FoodItem[] = [
       minerals: { calcium: 64, iron: 0.9, zinc: 0.4, magnesium: 54, phosphorus: 85, iodine: 2, selenium: 10, copper: 0.1, potassium: 696, sodium: 1, manganese: 0.2, chromium: 2, molybdenum: 5 }
     },
     standardPortions: [
+      { label: "1 Date (20g)", grams: 20, description: "1 medium date" },
       { label: "2 Dates (40g)", grams: 40, description: "40g standard portion" },
       { label: "4 Dates (80g)", grams: 80, description: "80g standard portion" },
     ],
@@ -16433,6 +16441,9 @@ export const EXPANDED_FOOD_CATALOG: FoodItem[] = [
       minerals: { calcium: 120, iron: 3.5, zinc: 2.8, magnesium: 65, phosphorus: 85, iodine: 2, selenium: 10, copper: 0.1, potassium: 340, sodium: 320, manganese: 0.2, chromium: 2, molybdenum: 5 }
     },
     standardPortions: [
+      { label: "1 Pistachio Nut (0.7g)", grams: 0.7, description: "1 single pistachio nut" },
+      { label: "10 Pistachios (7g)", grams: 7, description: "10 pistachio nuts" },
+      { label: "20 Pistachios (14g)", grams: 14, description: "20 pistachio nuts" },
       { label: "1 Serving / Handful (30g)", grams: 30, description: "30g standard portion" },
       { label: "1 Bowl / Cup (100g)", grams: 100, description: "100g standard portion" },
     ],
@@ -16454,7 +16465,10 @@ export const EXPANDED_FOOD_CATALOG: FoodItem[] = [
       minerals: { calcium: 120, iron: 3.5, zinc: 2.8, magnesium: 65, phosphorus: 85, iodine: 2, selenium: 10, copper: 0.1, potassium: 340, sodium: 15, manganese: 0.2, chromium: 2, molybdenum: 5 }
     },
     standardPortions: [
-      { label: "1 Serving / Handful (30g)", grams: 30, description: "30g standard portion" },
+      { label: "1 Walnut Half (2.5g)", grams: 2.5, description: "1 half walnut kernel" },
+      { label: "2 Halves / 1 Whole (5g)", grams: 5, description: "2 halves / 1 whole walnut" },
+      { label: "4 Halves (10g)", grams: 10, description: "4 half walnut kernels" },
+      { label: "1 Serving / Handful (28g)", grams: 28, description: "28g standard handful" },
       { label: "1 Bowl / Cup (100g)", grams: 100, description: "100g standard portion" },
     ],
     isVerified: true,

@@ -91,6 +91,14 @@ export function parseLocalFoodQuery(text: string): ParsedFoodItem[] {
       multiplier = 3;
     } else if (/\b(four|char|charta|চার|চারটি|চারটা)\b/i.test(clause)) {
       multiplier = 4;
+    } else if (/\b(five|paanch|panch|পাঁচ|পাঁচটি|পাঁচটা)\b/i.test(clause)) {
+      multiplier = 5;
+    } else if (/\b(ten|dosh|দশ|দশটি|দশটা)\b/i.test(clause)) {
+      multiplier = 10;
+    } else if (/\b(fifteen|ponero|পনের|পনেরো)\b/i.test(clause)) {
+      multiplier = 15;
+    } else if (/\b(twenty|bish|kuri|বিশ|কুড়ি)\b/i.test(clause)) {
+      multiplier = 20;
     }
 
     // Unit detection
@@ -98,10 +106,11 @@ export function parseLocalFoodQuery(text: string): ParsedFoodItem[] {
     else if (/plate|প্লেট/i.test(clause)) unitLabel = 'Plate';
     else if (/bowl|বাটি/i.test(clause)) unitLabel = 'Bowl';
     else if (/cup|কাপ/i.test(clause)) unitLabel = 'Cup';
+    else if (/handful|handfull|মুঠো/i.test(clause)) unitLabel = 'Handful';
     else if (/glass|গ্লাস/i.test(clause)) unitLabel = 'Glass';
     else if (/bottle|বোতল/i.test(clause)) unitLabel = 'Bottle';
     else if (/slice|স্লাইস/i.test(clause)) unitLabel = 'Slice';
-    else if (/piece|pc|ta|টি|টা|পিস/i.test(clause)) unitLabel = 'Piece';
+    else if (/piece|pc|ta|টি|টা|পিস|দানা|kernel|nut/i.test(clause)) unitLabel = 'Piece';
 
     // 2. Search for best matching food in the 800+ catalog
     let bestFood: FoodItem | null = null;
@@ -219,19 +228,46 @@ export function parseLocalFoodQuery(text: string): ParsedFoodItem[] {
     }
 
     if (bestFood && bestScore >= 20) {
-      // Determine grams
+      // Determine grams and portion description accurately
       let grams = 100;
+      let portionDesc = '';
+
+      const isNutOrSeed = 
+        bestFood.category === 'Nuts & Seeds' ||
+        bestFood.nameEn.toLowerCase().includes('nut') ||
+        bestFood.nameEn.toLowerCase().includes('badam') ||
+        bestFood.nameEn.toLowerCase().includes('almond') ||
+        bestFood.nameEn.toLowerCase().includes('cashew') ||
+        bestFood.nameEn.toLowerCase().includes('peanut');
+
       if (explicitGrams) {
         grams = explicitGrams;
+        portionDesc = `${explicitGrams}g portion`;
+      } else if (isNutOrSeed && !/handful|packet|bowl|cup|মুঠো|প্যাকেট|বাটি|কাপ/i.test(clause)) {
+        // User asked for piece count of nuts, e.g. "10 kaju badam" or "15 kath badam" or "20 peanuts"
+        const singleKernel = bestFood.standardPortions.find(p => p.grams <= 2.5);
+        if (singleKernel) {
+          grams = Math.round(singleKernel.grams * multiplier * 10) / 10;
+          portionDesc = `${multiplier} ${multiplier === 1 ? 'Nut/Kernel' : 'Nuts/Kernels'} (${grams}g)`;
+        } else {
+          const standardPortion = bestFood.standardPortions[0];
+          const baseGrams = standardPortion ? standardPortion.grams : 28;
+          grams = Math.round(baseGrams * multiplier);
+          portionDesc = `${multiplier} ${unitLabel} (${grams}g)`;
+        }
       } else {
-        const standardPortion = bestFood.standardPortions[0];
-        const baseGrams = standardPortion ? standardPortion.grams : 100;
+        let matchedPortion = bestFood.standardPortions[0];
+        if (unitLabel === 'Handful') {
+          const hp = bestFood.standardPortions.find(p => /handful|মুঠো/i.test(p.label));
+          if (hp) matchedPortion = hp;
+        } else if (unitLabel === 'Packet') {
+          const pp = bestFood.standardPortions.find(p => /packet|pack|প্যাকেট/i.test(p.label));
+          if (pp) matchedPortion = pp;
+        }
+        const baseGrams = matchedPortion ? matchedPortion.grams : 100;
         grams = Math.round(baseGrams * multiplier);
+        portionDesc = `${multiplier} ${unitLabel} (${grams}g)`;
       }
-
-      const portionDesc = explicitGrams 
-        ? `${explicitGrams}g portion` 
-        : `${multiplier} ${unitLabel} (${grams}g)`;
 
       results.push({
         foodItemId: bestFood.id,
