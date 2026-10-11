@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
-import { BANGLADESH_FOOD_DATABASE } from '../data/bangladeshFoods';
+import { foodDbService } from '../services/foodDatabase';
 import { NUTRIENT_REFERENCES_TEEN_14_18 } from '../data/nutrientReferences';
 import { sumNutrients, getTodayDateString } from '../utils/calculations';
 import { Sparkles, Plus, Check, Loader2, ShieldCheck, AlertCircle, Apple, Zap, Flame, Heart } from 'lucide-react';
@@ -53,7 +53,7 @@ export function SmartGapSolverView() {
 
     // 1. Vitamin C or Fibre Gap -> Guava (Peyara) or Amla
     if (gaps.vitC > 5 || gaps.fibre > 2) {
-      const guava = BANGLADESH_FOOD_DATABASE.find(f => f.id === 'peyara');
+      const guava = foodDbService.getFoodById('peyara');
       if (guava) {
         list.push({
           foodItemId: guava.id,
@@ -77,7 +77,7 @@ export function SmartGapSolverView() {
 
     // 2. Protein or Iron Gap -> Red Lentil (Dal Masoor)
     if (gaps.protein > 5 || gaps.iron > 1) {
-      const dal = BANGLADESH_FOOD_DATABASE.find(f => f.id === 'dal_masoor');
+      const dal = foodDbService.getFoodById('dal_masoor');
       if (dal) {
         list.push({
           foodItemId: dal.id,
@@ -101,7 +101,7 @@ export function SmartGapSolverView() {
 
     // 3. Calcium or B12 Gap -> Cow Milk or Boiled Egg
     if (gaps.calcium > 50 || gaps.protein > 3) {
-      const egg = BANGLADESH_FOOD_DATABASE.find(f => f.id === 'dim_sheddho');
+      const egg = foodDbService.getFoodById('dim_sheddho');
       if (egg) {
         list.push({
           foodItemId: egg.id,
@@ -125,7 +125,7 @@ export function SmartGapSolverView() {
 
     // 4. Vitamin A or Calcium Gap -> Red Amaranth (Lal Shak)
     if (gaps.vitA > 50 || gaps.calcium > 100) {
-      const shak = BANGLADESH_FOOD_DATABASE.find(f => f.id === 'lal_shak');
+      const shak = foodDbService.getFoodById('lal_shak');
       if (shak) {
         list.push({
           foodItemId: shak.id,
@@ -151,7 +151,7 @@ export function SmartGapSolverView() {
     if (list.length === 0) {
       const defaults = ['peyara', 'dal_masoor', 'dim_sheddho'];
       defaults.forEach(id => {
-        const item = BANGLADESH_FOOD_DATABASE.find(f => f.id === id);
+        const item = foodDbService.getFoodById(id);
         if (item) {
           list.push({
             foodItemId: item.id,
@@ -199,7 +199,7 @@ export function SmartGapSolverView() {
       const data = await res.json();
       if (data.success && Array.isArray(data.recommendations)) {
         const mapped = data.recommendations.map((rec: any) => {
-          const found = BANGLADESH_FOOD_DATABASE.find(f => f.id === rec.foodItemId) || BANGLADESH_FOOD_DATABASE[0];
+          const found = foodDbService.getFoodById(rec.foodItemId) || foodDbService.getAllFoods()[0];
           const grams = rec.recommendedGrams || 100;
           const factor = grams / 100;
           return {
@@ -230,7 +230,7 @@ export function SmartGapSolverView() {
   };
 
   const handleLogRecommendation = (rec: GapRecommendation) => {
-    const food = BANGLADESH_FOOD_DATABASE.find(f => f.id === rec.foodItemId) || BANGLADESH_FOOD_DATABASE[0];
+    const food = foodDbService.getFoodById(rec.foodItemId) || foodDbService.getAllFoods()[0];
     const grams = rec.recommendedGrams || 100;
 
     addFoodLog({

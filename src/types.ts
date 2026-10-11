@@ -61,12 +61,24 @@ export interface PortionOption {
   description?: string;
 }
 
+export type FoodCategory = 
+  | 'Cereals & Grains' 
+  | 'Lentils & Pulses' 
+  | 'Fish & Meat' 
+  | 'Eggs & Dairy' 
+  | 'Fruits' 
+  | 'Vegetables' 
+  | 'Nuts & Seeds' 
+  | 'Prepared & Snacks' 
+  | 'Beverages' 
+  | 'Special Foods & Eating Out';
+
 export interface FoodItem {
   id: string;
   nameEn: string;
   nameBn: string;
   banglish: string[];
-  category: 'Cereals & Grains' | 'Lentils & Pulses' | 'Fish & Meat' | 'Eggs & Dairy' | 'Fruits' | 'Vegetables' | 'Nuts & Seeds' | 'Prepared & Snacks' | 'Beverages';
+  category: FoodCategory;
   source: 'FAO Bangladesh (2013)' | 'USDA FoodData Central' | 'User Recipe' | 'Package Label';
   sourceUrl: string;
   preparationState: 'raw' | 'cooked';
@@ -89,6 +101,8 @@ export interface FoodLogItem {
   source: string;
   nutrients: NutrientValues;
   timestamp: number;
+  mealGroupId?: string;
+  mealGroupName?: string;
 }
 
 export interface PlannedMealItem {
@@ -96,10 +110,36 @@ export interface PlannedMealItem {
   title: string;
   mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack';
   foodName: string;
+  foodItemId?: string;
   grams: number;
   nutrients: NutrientValues;
   source: string;
   gapsAddressed: string[];
+}
+
+export interface HabitItem {
+  id: string;
+  title: string;
+  titleBn: string;
+  category: 'nutrition' | 'hydration' | 'routine' | 'wellness';
+  enabled: boolean;
+  completedDates: string[]; // List of YYYY-MM-DD
+  order: number;
+  reminderTime?: string; // e.g. "08:00 AM"
+}
+
+export interface FavoriteMealComponent {
+  foodItemId: string;
+  foodName: string;
+  quantityGrams: number;
+  portionLabel?: string;
+}
+
+export interface FavoriteMealTemplate {
+  id: string;
+  name: string;
+  components: FavoriteMealComponent[];
+  waterMl?: number;
 }
 
 export interface HydrationLog {

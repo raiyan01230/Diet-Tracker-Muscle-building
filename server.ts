@@ -4,7 +4,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
-import { BANGLADESH_FOOD_DATABASE } from './src/data/bangladeshFoods.ts';
+import { foodDbService } from './src/services/foodDatabase.ts';
+import { parseLocalFoodQuery } from './src/utils/aiFoodParser.ts';
 
 dotenv.config();
 
@@ -17,74 +18,63 @@ async function startServer() {
 
   // API endpoint for AI Food Assistant parsing
   app.post('/api/ai-parse', async (req, res) => {
-    try {
-      const { text, lang } = req.body;
-      const apiKey = process.env.GEMINI_API_KEY;
+    const { text, lang } = req.body;
+    if (!text || !text.trim()) {
+      return res.json({ success: true, items: [] });
+    }
 
-      if (!apiKey) {
-        return res.status(500).json({
-          success: false,
-          error: 'AI API key not configured. Please configure GEMINI_API_KEY in secrets.',
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    // If API key is available, attempt Gemini model parsing
+    if (apiKey) {
+      try {
+        const ai = new GoogleGenAI({ apiKey });
+
+        const prompt = `You are an expert clinical nutritionist and dietary assistant in Bangladesh.
+The user logged: "${text}"
+Parse the items and quantities. Return ONLY a valid JSON array of objects with keys:
+- foodItemId (string matching our catalog or null)
+- foodName (string with English and Bangla)
+- preparationState ("raw" or "cooked")
+- quantityGrams (number)
+- portionDescription (string)
+- confidence (number between 0 and 1)
+- clarifyingQuestion (string or null)`;
+
+        const response = await ai.models.generateContent({
+          model: 'gemini-3.8-flash',
+          contents: prompt,
         });
+
+        const rawText = response.text || '';
+        const cleanedJson = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+        const parsedItems = JSON.parse(cleanedJson);
+
+        if (Array.isArray(parsedItems) && parsedItems.length > 0) {
+          return res.json({
+            success: true,
+            items: parsedItems,
+            source: 'gemini-ai',
+          });
+        }
+      } catch (geminiError) {
+        console.warn('Gemini AI failed, using verified database NLP fallback:', geminiError);
       }
+    }
 
-      const ai = new GoogleGenAI({ apiKey });
-
-      const foodCatalogSummary = BANGLADESH_FOOD_DATABASE.map(
-        f => `- id: ${f.id}, name: ${f.nameEn} (${f.nameBn}), aliases: [${f.banglish.join(', ')}], category: ${f.category}, default per 100g calories: ${f.per100g.calories} kcal, protein: ${f.per100g.protein}g`
-      ).join('\n');
-
-      const prompt = `You are an expert clinical nutritionist and AI dietary assistant.
-The user has logged any food item in English, Bangla, or Banglish (e.g. chips, chocolate, snacks, fast food, sweets, drinks, or traditional Bangladeshi meals like "1 packet potato chips", "chocolate bar", "1 cup cha", "2 ta rosogolla", "bhaat ar dal"):
-"${text}"
-
-Here is our verified database of foods:
-${foodCatalogSummary}
-
-Your task:
-1. Parse the text to identify all food items mentioned, their quantities, portion units (e.g. packet, bar, cup, bowl, plate, grams, pieces), and preparation states.
-2. Match each food item to the closest verified food id from the catalog above if possible. If it's a general item like chips, chocolate, or snacks not explicitly listed, match to the closest snack/prepared item in the catalog or estimate realistic nutrition values per 100g.
-3. Determine the estimated weight in grams.
-4. Return a strictly valid JSON array (no markdown code blocks, just raw JSON) with objects containing:
-   - foodItemId (string or null if custom)
-   - foodName (string with English and Bangla names if possible)
-   - preparationState ("raw" or "cooked")
-   - quantityGrams (number)
-   - portionDescription (string)
-   - confidence (number between 0 and 1)
-   - clarifyingQuestion (string or null if clear)
-
-Return ONLY valid JSON array format:
-[
-  {
-    "foodItemId": "potato_chips",
-    "foodName": "Potato Chips / Crisps (আলু চিপস)",
-    "preparationState": "cooked",
-    "quantityGrams": 50,
-    "portionDescription": "1 Packet (50g)",
-    "confidence": 0.95,
-    "clarifyingQuestion": null
-  }
-]`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: prompt,
-      });
-
-      const rawText = response.text || '';
-      const cleanedJson = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
-      const parsedItems = JSON.parse(cleanedJson);
-
-      res.json({
+    // High-speed verified database NLP parser fallback (works instantly even without API key)
+    try {
+      const localItems = parseLocalFoodQuery(text);
+      return res.json({
         success: true,
-        items: parsedItems,
+        items: localItems,
+        source: 'verified-catalog-nlp',
       });
-    } catch (error: any) {
-      console.error('AI Parse error:', error);
-      res.status(500).json({
+    } catch (localError: any) {
+      console.error('Local parse error:', localError);
+      return res.status(500).json({
         success: false,
-        error: error.message || 'Failed to parse food description with AI.',
+        error: 'Unable to parse food item.',
       });
     }
   });
@@ -104,7 +94,18 @@ Return ONLY valid JSON array format:
 
       const ai = new GoogleGenAI({ apiKey });
 
-      const foodCatalogSummary = BANGLADESH_FOOD_DATABASE.map(
+      const allFoods = foodDbService.getAllFoods();
+      // Select top candidates matching nutrient gaps to minimize latency and token processing
+      const candidateFoods = allFoods.filter(f => {
+        if (nutrientGaps?.proteinNeeded > 5 && f.per100g.protein >= 8) return true;
+        if (nutrientGaps?.fibreNeeded > 2 && f.per100g.fibre >= 3) return true;
+        if (nutrientGaps?.vitCNeeded > 10 && (f.per100g.vitamins.c || 0) >= 15) return true;
+        if (nutrientGaps?.calciumNeeded > 50 && (f.per100g.minerals.calcium || 0) >= 60) return true;
+        if (nutrientGaps?.ironNeeded > 1 && (f.per100g.minerals.iron || 0) >= 2) return true;
+        return ['peyara', 'dal_masoor', 'dim_sheddho', 'lal_shak', 'murgi_mangsho', 'rui_mach'].includes(f.id);
+      }).slice(0, 35);
+
+      const foodCatalogSummary = candidateFoods.map(
         f => `- id: ${f.id}, name: ${f.nameEn} (${f.nameBn}), category: ${f.category}, per 100g calories: ${f.per100g.calories}, protein: ${f.per100g.protein}g, vitamin C: ${f.per100g.vitamins.c}mg, calcium: ${f.per100g.minerals.calcium}mg, iron: ${f.per100g.minerals.iron}mg`
       ).join('\n');
 

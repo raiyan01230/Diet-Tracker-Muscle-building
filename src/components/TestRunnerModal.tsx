@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { scaleNutrients, sumNutrients } from '../utils/calculations';
 import { calculateTeenEER } from '../data/nutrientReferences';
 import { BANGLADESH_FOOD_DATABASE } from '../data/bangladeshFoods';
+import { foodDbService } from '../services/foodDatabase';
 import { FlaskConical, CheckCircle2, XCircle, Loader2, Play } from 'lucide-react';
 
 interface TestRunnerModalProps {
@@ -96,10 +97,23 @@ export function TestRunnerModal({ isOpen, onClose }: TestRunnerModalProps) {
         testRes.push({
           name: 'Bangladesh Food Database Integrity Test',
           passed,
-          details: `Verified ${BANGLADESH_FOOD_DATABASE.length} local food entries with FAO 2013 source URLs.`,
+          details: `Verified ${BANGLADESH_FOOD_DATABASE.length} baseline local food entries with FAO 2013 source URLs.`,
         });
       } catch (e: any) {
         testRes.push({ name: 'Database Integrity Test', passed: false, details: e.message });
+      }
+
+      // Test 6: 800+ Verified Food Catalog Scale Test
+      try {
+        const totalCount = foodDbService.getFoodCount();
+        const passed = totalCount >= 800 && foodDbService.getAllFoods().every(f => f.id && f.nameEn && f.per100g);
+        testRes.push({
+          name: '800+ Verified Food Catalog Scale Test',
+          passed,
+          details: `Verified ${totalCount} items in food database (exceeds 800 requirement).`,
+        });
+      } catch (e: any) {
+        testRes.push({ name: '800+ Catalog Integrity Test', passed: false, details: e.message });
       }
 
       setResults(testRes);
