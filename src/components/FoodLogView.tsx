@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { foodDbService } from '../services/foodDatabase';
+import { BANGLADESH_FOOD_DATABASE } from '../data/bangladeshFoods';
 import { scaleNutrients, getTodayDateString } from '../utils/calculations';
 import { FoodItem } from '../types';
 import { 
@@ -29,7 +29,19 @@ export function FoodLogView() {
 
   const categories = ['All', 'Cereals & Grains', 'Lentils & Pulses', 'Fish & Meat', 'Eggs & Dairy', 'Fruits', 'Vegetables', 'Nuts & Seeds', 'Prepared & Snacks', 'Beverages'];
 
-  const filteredFoods = foodDbService.searchFoods(searchQuery, selectedCategory);
+  const filteredFoods = BANGLADESH_FOOD_DATABASE.filter(item => {
+    const matchesCat = !selectedCategory || selectedCategory === 'All' || item.category === selectedCategory;
+    if (!matchesCat) return false;
+    if (!searchQuery.trim()) return true;
+
+    const q = searchQuery.toLowerCase().trim();
+    const matchesEn = item.nameEn.toLowerCase().includes(q);
+    const matchesBn = item.nameBn.includes(q);
+    const matchesBanglish = item.banglish.some(b => b.toLowerCase().includes(q));
+    const matchesCategory = item.category.toLowerCase().includes(q);
+
+    return matchesEn || matchesBn || matchesBanglish || matchesCategory;
+  });
 
   const handleSelectFood = (food: FoodItem) => {
     setSelectedFood(food);
@@ -272,7 +284,7 @@ export function FoodLogView() {
               <UtensilsCrossed className="w-10 h-10 text-stone-400 mx-auto mb-3" />
               <h3 className="font-bold text-stone-800 text-sm">Select a food item to log</h3>
               <p className="text-xs text-stone-500 mt-1">
-                Choose an item from the 800+ catalog on the left to configure grams and portion size.
+                Choose an item from the catalog on the left to configure grams and portion size.
               </p>
             </div>
           )}

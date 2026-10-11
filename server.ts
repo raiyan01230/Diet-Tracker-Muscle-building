@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
-import { BANGLADESH_FOOD_DATABASE } from './src/data/bangladeshFoods.js';
+import { BANGLADESH_FOOD_DATABASE } from './src/data/bangladeshFoods.ts';
 
 dotenv.config();
 
