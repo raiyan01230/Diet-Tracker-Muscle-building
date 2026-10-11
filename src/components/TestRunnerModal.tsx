@@ -3,6 +3,7 @@ import { scaleNutrients, sumNutrients } from '../utils/calculations';
 import { calculateTeenEER } from '../data/nutrientReferences';
 import { BANGLADESH_FOOD_DATABASE } from '../data/bangladeshFoods';
 import { foodDbService } from '../services/foodDatabase';
+import { parseLocalFoodQuery } from '../utils/aiFoodParser';
 import { FlaskConical, CheckCircle2, XCircle, Loader2, Play } from 'lucide-react';
 
 interface TestRunnerModalProps {
@@ -114,6 +115,39 @@ export function TestRunnerModal({ isOpen, onClose }: TestRunnerModalProps) {
         });
       } catch (e: any) {
         testRes.push({ name: '800+ Catalog Integrity Test', passed: false, details: e.message });
+      }
+
+      // Test 7: Booter Dal & Tea Match Accuracy Test
+      try {
+        const bootSearch = foodDbService.searchFoods('বুটের ডাল');
+        const booterSearch = foodDbService.searchFoods('booter dal');
+        const buterSearch = foodDbService.searchFoods('buter dal');
+        const chanaSearch = foodDbService.searchFoods('chana dal');
+        const teaSearch = foodDbService.searchFoods('ca');
+
+        const parsedBoot = parseLocalFoodQuery('বুটের ডাল');
+        const parsedBooter = parseLocalFoodQuery('1 bati booter dal');
+        const parsedTea = parseLocalFoodQuery('1 cup ca');
+
+        const searchOk = 
+          bootSearch[0]?.id === 'dal_booter_chana' &&
+          booterSearch[0]?.id === 'dal_booter_chana' &&
+          buterSearch[0]?.id === 'dal_booter_chana' &&
+          chanaSearch[0]?.id === 'dal_booter_chana' &&
+          teaSearch[0]?.category === 'Beverages';
+
+        const parseOk = 
+          parsedBoot[0]?.foodItemId === 'dal_booter_chana' &&
+          parsedBooter[0]?.foodItemId === 'dal_booter_chana' &&
+          (parsedTea[0]?.foodItemId === 'cha_dudh' || parsedTea[0]?.foodItemId === 'bev_tea_dudh_cha_sugar');
+
+        testRes.push({
+          name: 'Booter Dal & Tea Accurate Match Test',
+          passed: searchOk && parseOk,
+          details: `Confirmed 'বুটের ডাল', 'booter dal', 'buter dal', and 'chana dal' resolve to Boot er Dal (dal_booter_chana) and 'ca' resolves to Tea.`,
+        });
+      } catch (e: any) {
+        testRes.push({ name: 'Booter Dal & Tea Match Test', passed: false, details: e.message });
       }
 
       setResults(testRes);

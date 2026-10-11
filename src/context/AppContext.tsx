@@ -137,6 +137,15 @@ const initialFavoriteMeals: FavoriteMealTemplate[] = [
       { foodItemId: 'mojo_cola', foodName: 'Mojo Cola Soft Drink (মোজো)', quantityGrams: 250, portionLabel: '1 Bottle (250ml)' },
     ],
   },
+  {
+    id: 'fav_6',
+    name: 'হাতে তৈরি আটার রুটি + বুটের ডাল',
+    waterMl: 250,
+    components: [
+      { foodItemId: 'roti_handmade', foodName: 'Handmade Whole Wheat Ruti (হাতে তৈরি আটার রুটি)', quantityGrams: 80, portionLabel: '2 Rotis (80g)' },
+      { foodItemId: 'dal_booter_chana', foodName: 'Boot er Dal with Coconut (Chana Dal) (নারকেল দিয়ে বুটের ডাল)', quantityGrams: 150, portionLabel: '1 Bowl (150g)' },
+    ],
+  },
 ];
 
 const initialFoodLogs: FoodLogItem[] = [];

@@ -32,9 +32,19 @@ export function parseLocalFoodQuery(text: string): ParsedFoodItem[] {
   const allFoods = foodDbService.getAllFoods();
   const normalized = text.toLowerCase().trim();
 
+  // Pre-process user query to strip conversational filler and instructions
+  // e.g. "বুটের ডাল im trying to add this becude ate this but this everytime i ate ca or tea something fix that" -> "বুটের ডাল"
+  let preprocessed = normalized
+    .replace(/\b(i'?m|i am)\s+(trying|wanting)\s+to\s+(add|log|record)\s+(this|it)\b/gi, '')
+    .replace(/\b(becude|because|cause|cos)\s+(i\s+)?(ate|had|consumed)\s+(this|it)\b/gi, '')
+    .replace(/\b(but\s+this\s+everytime\s+.*|fix\s+that.*|please\s+fix.*)\b/gi, '')
+    .trim();
+
+  const queryToParse = preprocessed.length > 0 ? preprocessed : normalized;
+
   // Split clauses by conjunctions, commas, pluses, newlines, and spaces when multiple distinct keywords are present
   // Also split if words like "chips collate" are typed together
-  let rawClauses = normalized
+  let rawClauses = queryToParse
     .split(/[,+&;\n]|\bar\b|\bebong\b|\bo\b|\bwith\b|\bdiye\b|\bsathe\b|\band\b/)
     .map(c => c.trim())
     .filter(c => c.length > 0);
@@ -97,10 +107,10 @@ export function parseLocalFoodQuery(text: string): ParsedFoodItem[] {
     let bestFood: FoodItem | null = null;
     let bestScore = -1;
 
-    // Clean quantity words
+    // Clean quantity words and conversational phrasing
     const cleanWords = clause
       .replace(/(\d+(?:\.\d+)?)/g, '')
-      .replace(/\b(ta|ti|g|gm|grams|ml|packet|pack|plate|bowl|cup|glass|bottle|slice|piece|pc|kheyechi|khelam|khabo|ate|had|eating|for|breakfast|lunch|dinner|snack|khawa|khabar)\b/gi, '')
+      .replace(/\b(ta|ti|g|gm|grams|ml|packet|pack|plate|bowl|cup|glass|bottle|slice|piece|pc|kheyechi|khelam|khabo|ate|had|eating|for|breakfast|lunch|dinner|snack|khawa|khabar|i ate|ate this|becude|because|everytime|something|fix that|trying to add|add this)\b/gi, '')
       .trim();
 
     for (const food of allFoods) {
@@ -116,54 +126,85 @@ export function parseLocalFoodQuery(text: string): ParsedFoodItem[] {
       if (cleanWords) {
         for (const term of searchTerms) {
           if (cleanWords === term) {
-            score = Math.max(score, 120);
+            score = Math.max(score, 150);
             break;
           }
-          if (term.includes(cleanWords) || cleanWords.includes(term)) {
+          if (term.includes(cleanWords) || (cleanWords.length >= 4 && cleanWords.includes(term))) {
             const matchLen = Math.min(cleanWords.length, term.length);
             score = Math.max(score, 60 + matchLen);
           }
         }
       }
 
-      // Token word-level overlap
+      // Unique token-level overlap
       const clauseTokens = cleanWords.split(/\s+/).filter(t => t.length >= 2);
       for (const token of clauseTokens) {
-        for (const term of searchTerms) {
-          if (term.includes(token)) {
-            score += 20;
-          }
+        if (searchTerms.some(term => term.includes(token))) {
+          score += 25;
         }
       }
 
-      // Priority aliases & phonetic variations for common user prompts
+      // Priority aliases & phonetic variations for common user prompts:
+
+      // 1. Booter Dal / Chana Dal / Cholar Dal / বুটের ডাল (High priority Bengali staple)
+      if (
+        /booter\s*dal|buter\s*dal|boot\s*er\s*dal|boot\s*dal|bute\s*dal|বুটের\s*ডাল|বুট\s*ডাল|cholar\s*dal|cholar\s*daal|chana\s*dal|chana\s*daal|bengal\s*gram/i.test(clause) &&
+        (food.id.includes('booter') || food.id === 'dal_booter_chana' || food.id.includes('cholar_dal'))
+      ) {
+        score += 150;
+      }
+
+      // 2. Chips / Snacks
       if (/chips|crisps|lays|kurkure|potata/i.test(clause) && (food.id.includes('chips') || food.id.includes('crackers'))) {
         score += 90;
       }
+
+      // 3. Chocolate
       if (/collate|chocolate|choclate|cadbury|kitkat|dairy milk/i.test(clause) && (food.id.includes('chocolate') || food.id.includes('kitkat') || food.id.includes('dairy_milk'))) {
         score += 90;
       }
+
+      // 4. Rice (Bhaat)
       if (/bhaat|bhat|rice|চাল/i.test(clause) && (food.id.includes('bhaat') || food.id.includes('rice') || food.id === 'bhaat_cooked')) {
         score += 70;
       }
+
+      // 5. Roti (Ruti)
       if (/ruti|roti|রুটি/i.test(clause) && (food.id.includes('roti') || food.id.includes('ruti'))) {
         score += 70;
       }
-      if (/dal|daal|ডাল/i.test(clause) && food.id.includes('dal')) {
-        score += 70;
+
+      // 6. Generic Dal (only if not already specialized)
+      if (/\b(dal|daal|ডাল)\b/i.test(clause) && food.id.includes('dal')) {
+        score += 50;
       }
+
+      // 7. Egg (Dim)
       if (/dim|egg|ডিম/i.test(clause) && (food.id.includes('dim') || food.id.includes('egg'))) {
         score += 70;
       }
+
+      // 8. Chicken (Murgi)
       if (/murgi|chicken|চিকেন/i.test(clause) && food.id.includes('chicken')) {
         score += 70;
       }
+
+      // 9. Beef (Goru)
       if (/gorur|beef|গরুর/i.test(clause) && food.id.includes('beef')) {
         score += 70;
       }
-      if (/cha|tea|চা/i.test(clause) && (food.id.includes('tea') || food.id.includes('cha'))) {
-        score += 70;
+
+      // 10. Tea (Cha / Ca / Tea / Dudh Cha)
+      // Must use word boundaries so it NEVER matches chana, chola, chocolate, etc.!
+      if (
+        /\b(cha|tea|chai|ca|dudh\s*cha|dudh\s*ca|lal\s*cha|lal\s*ca)\b|চা/i.test(clause) &&
+        !/\b(chana|chola|cholar|chocolate|chips)\b/i.test(clause) &&
+        (food.id.startsWith('bev_tea') || food.id === 'cha_dudh' || food.id.includes('tea') || food.id.includes('chai'))
+      ) {
+        score += 120;
       }
+
+      // 11. Soft Drinks / Mojo
       if (/mojo|cola|কোক/i.test(clause) && food.id.includes('mojo')) {
         score += 85;
       }

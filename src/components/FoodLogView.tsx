@@ -168,7 +168,7 @@ export function FoodLogView() {
             <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-3" />
             <input
               type="text"
-              placeholder="Search foods, special dishes, polao, biryani, chicken roast, pizza, mojo..."
+              placeholder="Search foods (e.g. বুটের ডাল, booter dal, cha, chips, ruti, polao, biryani, chicken roast)..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"

@@ -27,11 +27,12 @@ export function AiAssistantView() {
   const [sourceTag, setSourceTag] = useState<string>('Instant Verified Catalog NLP');
 
   const QUICK_PROMPTS = [
+    { label: '🥣 বুটের ডাল (Boot er Dal)', query: '1 bati booter dal ar 2 ta ruti', tag: 'Dal / Breakfast' },
     { label: '🥔 1 Packet Potato Chips', query: '1 packet potato chips', tag: 'Chips / Snacks' },
     { label: '🍫 Cadbury Chocolate', query: '1 Cadbury Dairy Milk chocolate bar', tag: 'Chocolate' },
     { label: '🍞 2 Rotis + Dal + Egg', query: '2 ta ruti, 1 bowl dal ar 1 dim sheddho', tag: 'Breakfast' },
     { label: '🍗 Rice + Chicken Curry', query: '1 plate bhaat ar murgir mangsho jhol', tag: 'Lunch' },
-    { label: '☕ 1 Cup Dudh Cha', query: '1 cup dudh cha with sugar', tag: 'Tea' },
+    { label: '☕ 1 Cup Dudh Cha (দুধ চা)', query: '1 cup dudh cha with sugar', tag: 'Tea' },
     { label: '🥤 1 Bottle Mojo Cola', query: '1 bottle mojo cola 250ml', tag: 'Drink' },
     { label: '🥟 1 Plate Fuchka & Tok', query: '1 plate fuchka with tok', tag: 'Street Food' },
   ];

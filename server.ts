@@ -31,8 +31,14 @@ async function startServer() {
         const ai = new GoogleGenAI({ apiKey });
 
         const prompt = `You are an expert clinical nutritionist and dietary assistant in Bangladesh.
-The user logged: "${text}"
-Parse the items and quantities. Return ONLY a valid JSON array of objects with keys:
+The user input is: "${text}"
+Extract the authentic foods eaten and their quantities.
+Special guidance:
+- If the user mentions "বুটের ডাল", "booter dal", "buter dal", "chana dal", or "cholar dal", map to foodItemId "dal_booter_chana" (Boot er Dal with Coconut / Chana Dal).
+- If the user mentions tea ("cha", "ca", "dudh cha", "tea"), map to tea ("bev_tea_dudh_cha_sugar" or "cha_dudh").
+- If the user includes conversational phrasing like "im trying to add this because ate this but everytime i ate...", ignore the conversational complaint/meta text and extract the intended food eaten.
+
+Return ONLY a valid JSON array of objects with keys:
 - foodItemId (string matching our catalog or null)
 - foodName (string with English and Bangla)
 - preparationState ("raw" or "cooked")

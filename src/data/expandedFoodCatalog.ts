@@ -1955,7 +1955,7 @@ export const EXPANDED_FOOD_CATALOG: FoodItem[] = [
     id: "dal_booter_chana",
     nameEn: "Boot er Dal with Coconut (Chana Dal)",
     nameBn: "নারকেল দিয়ে বুটের ডাল",
-    banglish: ["boot er dal","chana dal","cholar dal"],
+    banglish: ["booter dal","buter dal","boot er dal","bute dal","boot dal","cholar dal","cholar daal","chola dal","chana dal","chana daal","bengal gram dal","বুটের ডাল","বুট ডাল","ছোলার ডাল","নারকেল দিয়ে বুটের ডাল"],
     category: "Lentils & Pulses" as any,
     source: "FAO Bangladesh (2013)",
     sourceUrl: "https://www.fao.org/fileadmin/templates/food_composition/documents/FCT_10_2_14_final_version.pdf",
