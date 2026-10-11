@@ -1,0 +1,7 @@
+{
+  "name": "Pusty & Briddhi - Bangladesh Nutrition & Growth Tracker",
+  "description": "Production-ready nutrition and growth tracking platform for Bangladesh featuring local food composition tables (FAO 2013), AI food logging, micronutrient tracking, EER calculations for teens, WHO 2007 growth references, and secure persistence.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
