@@ -22,8 +22,18 @@ import {
 } from 'lucide-react';
 
 export function FoodLogView() {
-  const { foodLogs, addFoodLog, deleteFoodLog, deleteMealGroup, setActiveTab } = useApp();
-  const [selectedDate, setSelectedDate] = useState(getTodayDateString());
+  const { 
+    foodLogs, 
+    addFoodLog, 
+    deleteFoodLog, 
+    deleteMealGroup, 
+    setActiveTab, 
+    selectedDate, 
+    setSelectedDate,
+    goToPreviousDay,
+    goToNextDay,
+    goToToday
+  } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
@@ -192,14 +202,38 @@ export function FoodLogView() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
-          <div className="flex items-center space-x-2 bg-stone-50 px-3 py-2 rounded-xl border border-stone-200">
-            <Calendar className="w-4 h-4 text-emerald-600" />
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={e => setSelectedDate(e.target.value)}
-              className="bg-transparent text-xs font-semibold text-stone-800 focus:outline-none"
-            />
+          <div className="flex items-center space-x-1.5 bg-stone-50 px-2 py-1.5 rounded-xl border border-stone-200">
+            <button
+              onClick={goToPreviousDay}
+              title="Previous Day"
+              className="p-1 rounded-lg hover:bg-stone-200 text-stone-600 transition-colors"
+            >
+              ‹
+            </button>
+            <div className="flex items-center space-x-1.5 px-1">
+              <Calendar className="w-4 h-4 text-emerald-600" />
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={e => e.target.value && setSelectedDate(e.target.value)}
+                className="bg-transparent text-xs font-semibold text-stone-800 focus:outline-none cursor-pointer"
+              />
+            </div>
+            <button
+              onClick={goToNextDay}
+              title="Next Day"
+              className="p-1 rounded-lg hover:bg-stone-200 text-stone-600 transition-colors"
+            >
+              ›
+            </button>
+            {selectedDate !== getTodayDateString() && (
+              <button
+                onClick={goToToday}
+                className="ml-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-200 transition-colors"
+              >
+                Today
+              </button>
+            )}
           </div>
 
           <button

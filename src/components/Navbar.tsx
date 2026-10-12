@@ -13,7 +13,8 @@ import {
   ShieldCheck,
   FlaskConical,
   Droplet,
-  Calendar
+  Calendar,
+  Database
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -21,7 +22,7 @@ interface NavbarProps {
 }
 
 export function Navbar({ onOpenTestModal }: NavbarProps) {
-  const { activeTab, setActiveTab, userProfile } = useApp();
+  const { activeTab, setActiveTab, userProfile, dbStatus } = useApp();
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -61,6 +62,19 @@ export function Navbar({ onOpenTestModal }: NavbarProps) {
 
           {/* Quick User & Test Runner */}
           <div className="flex items-center space-x-3">
+            <div 
+              onClick={() => setActiveTab('profile')}
+              className={`hidden lg:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors border ${
+                dbStatus.connected 
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100' 
+                  : 'bg-amber-50 text-amber-800 border-amber-200'
+              }`}
+              title="Cloud SQL PostgreSQL Database stores all daily, weekly, 30-day, 90-day, and multi-year records."
+            >
+              <Database className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Cloud SQL: {dbStatus.connected ? `${dbStatus.totalFoodLogs} Entries Stored` : 'Syncing...'}</span>
+            </div>
+
             <button
               onClick={onOpenTestModal}
               className="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-medium rounded-lg transition-colors border border-stone-300"

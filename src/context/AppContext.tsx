@@ -1,9 +1,8 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { 
   UserProfile, 
   FoodLogItem, 
   GrowthMeasurement, 
-  HydrationLog, 
   PlannedMealItem,
   HabitItem,
   FavoriteMealTemplate,
@@ -25,6 +24,19 @@ interface AddCompleteMealParams {
     nutrients: NutrientValues;
   }>;
   waterMl?: number;
+}
+
+export interface DatabaseSyncStatus {
+  connected: boolean;
+  databaseEngine: string;
+  totalFoodLogs: number;
+  totalGrowthRecords: number;
+  totalHydrationRecords: number;
+  daysWithLogs: number;
+  retentionPolicy: string;
+  isSyncing: boolean;
+  lastSyncedAt: Date | null;
+  error?: string | null;
 }
 
 interface AppContextType {
@@ -56,10 +68,18 @@ interface AppContextType {
   deleteFavoriteMeal: (id: string) => void;
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  selectedDate: string;
+  setSelectedDate: (date: string) => void;
+  goToPreviousDay: () => void;
+  goToNextDay: () => void;
+  goToToday: () => void;
+  clearAllFoodLogs: () => Promise<void>;
   exportDataJSON: () => string;
   exportDataCSV: () => string;
   importDataJSON: (jsonStr: string) => boolean;
   resetToDefault: () => void;
+  dbStatus: DatabaseSyncStatus;
+  syncNow: () => Promise<void>;
 }
 
 const defaultProfile: UserProfile = {
@@ -182,7 +202,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const [hydrationLogs, setHydrationLogs] = useState<Record<string, number>>(() => {
     const saved = localStorage.getItem('pusty_hydration_logs');
-    return saved ? JSON.parse(saved) : { [todayStr]: 750 };
+    return saved ? JSON.parse(saved) : { [todayStr]: 0 };
   });
 
   const [plannedMeals, setPlannedMeals] = useState<PlannedMealItem[]>(() => {
@@ -217,7 +237,42 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   });
 
   const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [selectedDate, setSelectedDate] = useState<string>(todayStr);
 
+  const goToPreviousDay = useCallback(() => {
+    setSelectedDate(prev => {
+      const d = new Date(prev + 'T12:00:00');
+      d.setDate(d.getDate() - 1);
+      return d.toISOString().split('T')[0];
+    });
+  }, []);
+
+  const goToNextDay = useCallback(() => {
+    setSelectedDate(prev => {
+      const d = new Date(prev + 'T12:00:00');
+      d.setDate(d.getDate() + 1);
+      return d.toISOString().split('T')[0];
+    });
+  }, []);
+
+  const goToToday = useCallback(() => {
+    setSelectedDate(getTodayDateString());
+  }, []);
+
+  const [dbStatus, setDbStatus] = useState<DatabaseSyncStatus>({
+    connected: false,
+    databaseEngine: 'Cloud SQL PostgreSQL',
+    totalFoodLogs: 0,
+    totalGrowthRecords: 0,
+    totalHydrationRecords: 0,
+    daysWithLogs: 0,
+    retentionPolicy: 'Permanent 30/90/365+ Day Cloud SQL Storage',
+    isSyncing: true,
+    lastSyncedAt: null,
+    error: null,
+  });
+
+  // Keep localStorage as local fallback
   useEffect(() => {
     localStorage.setItem('pusty_user_profile', JSON.stringify(userProfile));
   }, [userProfile]);
@@ -246,8 +301,140 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('pusty_favorite_meals', JSON.stringify(favoriteMeals));
   }, [favoriteMeals]);
 
+  // Load authoritative data from Cloud SQL Database on initial mount
+  const loadDatabaseData = useCallback(async () => {
+    setDbStatus(prev => ({ ...prev, isSyncing: true }));
+    try {
+      const res = await fetch('/api/data?uid=user_bangladesh_01');
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          const { 
+            userProfile: dbProfile, 
+            foodLogs: dbLogs, 
+            growthMeasurements: dbGrowth, 
+            hydrationLogs: dbHydration, 
+            plannedMeals: dbPlanned, 
+            habits: dbHabits, 
+            favoriteMeals: dbFavorites 
+          } = json.data;
+
+          if (dbProfile) setUserProfile(dbProfile);
+          if (Array.isArray(dbLogs)) setFoodLogs(dbLogs);
+          if (Array.isArray(dbGrowth)) setGrowthMeasurements(dbGrowth);
+          if (dbHydration) setHydrationLogs(dbHydration);
+          if (Array.isArray(dbPlanned)) setPlannedMeals(dbPlanned);
+          if (Array.isArray(dbHabits)) setHabits(dbHabits);
+          if (Array.isArray(dbFavorites)) setFavoriteMeals(dbFavorites);
+
+          // Fetch database retention stats
+          const statsRes = await fetch('/api/database/status?uid=user_bangladesh_01');
+          if (statsRes.ok) {
+            const statsJson = await statsRes.json();
+            if (statsJson.success && statsJson.stats) {
+              setDbStatus({
+                connected: true,
+                databaseEngine: statsJson.stats.databaseEngine || 'Cloud SQL PostgreSQL',
+                totalFoodLogs: statsJson.stats.totalFoodLogs || dbLogs.length,
+                totalGrowthRecords: statsJson.stats.totalGrowthRecords || dbGrowth.length,
+                totalHydrationRecords: statsJson.stats.totalHydrationRecords || Object.keys(dbHydration).length,
+                daysWithLogs: statsJson.stats.daysWithLogs || 1,
+                retentionPolicy: 'Permanent 30-day, 90-day & 365+ Day Cloud Storage',
+                isSyncing: false,
+                lastSyncedAt: new Date(),
+                error: null,
+              });
+              return;
+            }
+          }
+
+          setDbStatus(prev => ({
+            ...prev,
+            connected: true,
+            isSyncing: false,
+            totalFoodLogs: dbLogs.length,
+            lastSyncedAt: new Date(),
+            error: null,
+          }));
+        }
+      }
+    } catch (err: any) {
+      console.warn('Database load fallback to localStorage:', err);
+      setDbStatus(prev => ({
+        ...prev,
+        connected: false,
+        isSyncing: false,
+        error: err.message || 'Offline mode',
+      }));
+    }
+  }, []);
+
+  useEffect(() => {
+    loadDatabaseData();
+  }, [loadDatabaseData]);
+
+  // Manual Trigger Full Sync
+  const syncNow = async () => {
+    setDbStatus(prev => ({ ...prev, isSyncing: true }));
+    try {
+      const payload = {
+        userProfile,
+        foodLogs,
+        growthMeasurements,
+        hydrationLogs,
+        plannedMeals,
+        habits,
+        favoriteMeals,
+      };
+      const res = await fetch('/api/sync?uid=user_bangladesh_01', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setDbStatus({
+          connected: true,
+          databaseEngine: 'Cloud SQL PostgreSQL',
+          totalFoodLogs: json.stats?.totalFoodLogs || foodLogs.length,
+          totalGrowthRecords: json.stats?.totalGrowthRecords || growthMeasurements.length,
+          totalHydrationRecords: json.stats?.totalHydrationRecords || Object.keys(hydrationLogs).length,
+          daysWithLogs: json.stats?.daysWithLogs || 1,
+          retentionPolicy: 'Permanent 30-day, 90-day & 365+ Day Cloud Storage',
+          isSyncing: false,
+          lastSyncedAt: new Date(),
+          error: null,
+        });
+      }
+    } catch (err: any) {
+      console.error('Manual sync error:', err);
+      setDbStatus(prev => ({ ...prev, isSyncing: false, error: err.message }));
+    }
+  };
+
+  const clearAllFoodLogs = async () => {
+    setFoodLogs([]);
+    localStorage.removeItem('pusty_food_logs');
+    setDbStatus(prev => ({ ...prev, totalFoodLogs: 0, isSyncing: true }));
+    try {
+      await fetch('/api/food-logs/all?uid=user_bangladesh_01', { method: 'DELETE' });
+      await syncNow();
+    } catch (e) {
+      console.error('Error clearing all food logs:', e);
+      setDbStatus(prev => ({ ...prev, isSyncing: false }));
+    }
+  };
+
   const updateUserProfile = (profile: Partial<UserProfile>) => {
-    setUserProfile(prev => ({ ...prev, ...profile }));
+    setUserProfile(prev => {
+      const updated = { ...prev, ...profile };
+      fetch('/api/profile?uid=user_bangladesh_01', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated),
+      }).catch(e => console.warn('Profile sync error:', e));
+      return updated;
+    });
   };
 
   const addFoodLog = (log: Omit<FoodLogItem, 'id' | 'userId' | 'timestamp'>) => {
@@ -258,6 +445,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       timestamp: Date.now(),
     };
     setFoodLogs(prev => [newItem, ...prev]);
+
+    // Send immediately to Cloud SQL PostgreSQL
+    fetch('/api/food-logs?uid=user_bangladesh_01', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newItem),
+    }).catch(e => console.warn('Food log sync error:', e));
 
     // Check off habit "Log Meals Faithfully" for today automatically
     markHabitCompletedIfDateMatches('h_7', log.date);
@@ -282,6 +476,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }));
 
     setFoodLogs(prev => [...newItems, ...prev]);
+
+    // Send batch to Cloud SQL PostgreSQL
+    fetch('/api/food-logs?uid=user_bangladesh_01', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: newItems }),
+    }).catch(e => console.warn('Batch food logs sync error:', e));
 
     // If water was logged with this meal, log plain water separately
     if (params.waterMl && params.waterMl > 0) {
@@ -313,16 +514,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const deleteMealGroup = (mealGroupId: string) => {
     setFoodLogs(prev => prev.filter(item => item.mealGroupId !== mealGroupId));
+    fetch(`/api/food-logs/group/${mealGroupId}?uid=user_bangladesh_01`, {
+      method: 'DELETE',
+    }).catch(e => console.warn('Delete meal group error:', e));
   };
 
   const deleteFoodLog = (id: string) => {
     setFoodLogs(prev => prev.filter(item => item.id !== id));
+    fetch(`/api/food-logs/${id}?uid=user_bangladesh_01`, {
+      method: 'DELETE',
+    }).catch(e => console.warn('Delete food log error:', e));
   };
 
   const updateFoodLog = (id: string, updatedFields: Partial<FoodLogItem>) => {
     setFoodLogs(prev =>
       prev.map(item => (item.id === id ? { ...item, ...updatedFields } : item))
     );
+    fetch(`/api/food-logs/${id}?uid=user_bangladesh_01`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedFields),
+    }).catch(e => console.warn('Update food log error:', e));
   };
 
   const addGrowthMeasurement = (m: Omit<GrowthMeasurement, 'id' | 'userId'>) => {
@@ -337,24 +549,49 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       heightCm: m.heightCm,
       weightKg: m.weightKg,
     }));
+
+    fetch('/api/growth?uid=user_bangladesh_01', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newM),
+    }).catch(e => console.warn('Growth sync error:', e));
   };
 
   const deleteGrowthMeasurement = (id: string) => {
     setGrowthMeasurements(prev => prev.filter(item => item.id !== id));
+    fetch(`/api/growth/${id}?uid=user_bangladesh_01`, {
+      method: 'DELETE',
+    }).catch(e => console.warn('Delete growth error:', e));
   };
 
   const addWaterMl = (date: string, ml: number) => {
-    setHydrationLogs(prev => ({
-      ...prev,
-      [date]: (prev[date] || 0) + ml
-    }));
+    setHydrationLogs(prev => {
+      const newWater = (prev[date] || 0) + ml;
+      fetch('/api/hydration?uid=user_bangladesh_01', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date, waterMl: newWater }),
+      }).catch(e => console.warn('Hydration sync error:', e));
+      return {
+        ...prev,
+        [date]: newWater
+      };
+    });
   };
 
   const removeWaterMl = (date: string, ml: number) => {
-    setHydrationLogs(prev => ({
-      ...prev,
-      [date]: Math.max(0, (prev[date] || 0) - ml)
-    }));
+    setHydrationLogs(prev => {
+      const newWater = Math.max(0, (prev[date] || 0) - ml);
+      fetch('/api/hydration?uid=user_bangladesh_01', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date, waterMl: newWater }),
+      }).catch(e => console.warn('Hydration sync error:', e));
+      return {
+        ...prev,
+        [date]: newWater
+      };
+    });
   };
 
   const addPlannedMeal = (meal: Omit<PlannedMealItem, 'id'>) => {
@@ -363,6 +600,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: 'pm_' + Math.random().toString(36).substring(2, 9),
     };
     setPlannedMeals(prev => [newMeal, ...prev]);
+
+    fetch('/api/planned-meals?uid=user_bangladesh_01', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newMeal),
+    }).catch(e => console.warn('Planned meal sync error:', e));
   };
 
   const confirmPlannedMealAsEaten = (
@@ -402,6 +645,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const deletePlannedMeal = (id: string) => {
     setPlannedMeals(prev => prev.filter(p => p.id !== id));
+    fetch(`/api/planned-meals/${id}?uid=user_bangladesh_01`, {
+      method: 'DELETE',
+    }).catch(e => console.warn('Delete planned meal error:', e));
   };
 
   // Habits methods
@@ -414,12 +660,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         : [...h.completedDates, date];
       return { ...h, completedDates: newDates };
     }));
+
+    fetch(`/api/habits/${id}/toggle?uid=user_bangladesh_01`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date }),
+    }).catch(e => console.warn('Toggle habit error:', e));
   };
 
   const markHabitCompletedIfDateMatches = (habitId: string, date: string) => {
     setHabits(prev => prev.map(h => {
       if (h.id !== habitId) return h;
       if (h.completedDates.includes(date)) return h;
+      fetch(`/api/habits/${habitId}/toggle?uid=user_bangladesh_01`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date }),
+      }).catch(e => console.warn('Toggle habit auto error:', e));
       return { ...h, completedDates: [...h.completedDates, date] };
     }));
   };
@@ -432,14 +689,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       order: habits.length + 1,
     };
     setHabits(prev => [...prev, newH]);
+
+    fetch('/api/habits?uid=user_bangladesh_01', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newH),
+    }).catch(e => console.warn('Add habit error:', e));
   };
 
   const updateHabit = (id: string, updates: Partial<HabitItem>) => {
-    setHabits(prev => prev.map(h => h.id === id ? { ...h, ...updates } : h));
+    setHabits(prev => {
+      const updatedList = prev.map(h => h.id === id ? { ...h, ...updates } : h);
+      const target = updatedList.find(h => h.id === id);
+      if (target) {
+        fetch('/api/habits?uid=user_bangladesh_01', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(target),
+        }).catch(e => console.warn('Update habit error:', e));
+      }
+      return updatedList;
+    });
   };
 
   const deleteHabit = (id: string) => {
     setHabits(prev => prev.filter(h => h.id !== id));
+    fetch(`/api/habits/${id}?uid=user_bangladesh_01`, {
+      method: 'DELETE',
+    }).catch(e => console.warn('Delete habit error:', e));
   };
 
   // Favorites methods
@@ -449,10 +726,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       id: 'fav_' + Math.random().toString(36).substring(2, 9),
     };
     setFavoriteMeals(prev => [newFav, ...prev]);
+
+    fetch('/api/favorite-meals?uid=user_bangladesh_01', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newFav),
+    }).catch(e => console.warn('Add favorite meal error:', e));
   };
 
   const deleteFavoriteMeal = (id: string) => {
     setFavoriteMeals(prev => prev.filter(f => f.id !== id));
+    fetch(`/api/favorite-meals/${id}?uid=user_bangladesh_01`, {
+      method: 'DELETE',
+    }).catch(e => console.warn('Delete favorite meal error:', e));
   };
 
   const exportDataJSON = () => {
@@ -466,6 +752,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       favoriteMeals,
       exportedAt: new Date().toISOString(),
       app: 'Pusty & Briddhi Nutrition Intelligence Engine',
+      database: 'Cloud SQL PostgreSQL Permanent Storage',
     };
     return JSON.stringify(data, null, 2);
   };
@@ -488,6 +775,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (parsed.plannedMeals) setPlannedMeals(parsed.plannedMeals);
       if (parsed.habits) setHabits(parsed.habits);
       if (parsed.favoriteMeals) setFavoriteMeals(parsed.favoriteMeals);
+
+      // Persist the whole imported dataset into Cloud SQL PostgreSQL immediately
+      fetch('/api/sync?uid=user_bangladesh_01', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(parsed),
+      }).then(() => syncNow()).catch(e => console.warn('Import DB sync error:', e));
+
       return true;
     } catch (e) {
       console.error('Import error:', e);
@@ -504,6 +799,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setHabits(initialHabits);
     setFavoriteMeals(initialFavoriteMeals);
     localStorage.clear();
+    syncNow();
   };
 
   return (
@@ -537,10 +833,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         deleteFavoriteMeal,
         activeTab,
         setActiveTab,
+        selectedDate,
+        setSelectedDate,
+        goToPreviousDay,
+        goToNextDay,
+        goToToday,
+        clearAllFoodLogs,
         exportDataJSON,
         exportDataCSV,
         importDataJSON,
         resetToDefault,
+        dbStatus,
+        syncNow,
       }}
     >
       {children}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
+import { CalendarBar } from './components/CalendarBar';
 import { DashboardView } from './components/DashboardView';
 import { FoodLogView } from './components/FoodLogView';
 import { AiAssistantView } from './components/AiAssistantView';
@@ -22,6 +23,7 @@ function MainContent({ onOpenTestModal }: { onOpenTestModal: () => void }) {
   return (
     <div className="min-h-screen bg-stone-100 text-stone-900 font-sans selection:bg-emerald-500 selection:text-white">
       <Navbar onOpenTestModal={onOpenTestModal} />
+      <CalendarBar />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         {activeTab === 'dashboard' && <DashboardView />}
         {activeTab === 'food-log' && <FoodLogView />}

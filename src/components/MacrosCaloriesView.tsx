@@ -25,10 +25,11 @@ import {
 } from 'lucide-react';
 
 export function MacrosCaloriesView() {
-  const { userProfile, updateUserProfile, foodLogs } = useApp();
+  const { userProfile, updateUserProfile, foodLogs, selectedDate } = useApp();
   const [dateRange, setDateRange] = useState<'7d' | '30d' | '90d'>('7d');
 
   const todayStr = getTodayDateString();
+  const isToday = selectedDate === todayStr;
 
   // Calculate EER
   const calculatedEER = calculateTeenEER(
@@ -45,8 +46,8 @@ export function MacrosCaloriesView() {
   const fibreAI = refValues.rdas.fibre;
   const fatTargetGrams = Math.round((calculatedEER * 0.30) / 9);
 
-  // Today totals
-  const todayLogs = foodLogs.filter(l => l.date === todayStr);
+  // Selected date totals
+  const todayLogs = foodLogs.filter(l => l.date === selectedDate);
   const todayTotals = sumNutrients(todayLogs);
   const remainingCalories = calculatedEER - todayTotals.calories;
   const logCompleteness = todayLogs.length > 0 ? (todayLogs.length >= 3 ? 'Complete' : 'Partial') : 'Incomplete';

@@ -17,12 +17,13 @@ import {
 } from 'lucide-react';
 
 export function DashboardView() {
-  const { userProfile, foodLogs, growthMeasurements, setActiveTab } = useApp();
+  const { userProfile, foodLogs, growthMeasurements, setActiveTab, selectedDate } = useApp();
   const today = getTodayDateString();
+  const isToday = selectedDate === today;
 
-  // Filter food logs for today
-  const todayLogs = foodLogs.filter(l => l.date === today);
-  const totalNutrients = sumNutrients(todayLogs);
+  // Filter food logs for selected calendar date
+  const activeLogs = foodLogs.filter(l => l.date === selectedDate);
+  const totalNutrients = sumNutrients(activeLogs);
 
   // Calculate EER
   const estimatedCalories = calculateTeenEER(
@@ -89,7 +90,7 @@ export function DashboardView() {
         <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between text-stone-500 text-xs font-semibold uppercase tracking-wider mb-2">
-              <span>Today's Calories</span>
+              <span>{isToday ? "Today's Calories" : `Calories (${selectedDate})`}</span>
               <Flame className="w-4 h-4 text-orange-500" />
             </div>
             <div className="flex items-baseline space-x-2">
@@ -173,15 +174,15 @@ export function DashboardView() {
         <div className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between text-stone-500 text-xs font-semibold uppercase tracking-wider mb-2">
-              <span>Today's Log Status</span>
+              <span>{isToday ? "Today's Log Status" : `Log Status (${selectedDate})`}</span>
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
             </div>
             <div className="flex items-baseline space-x-2">
-              <span className="text-3xl font-bold text-stone-900">{todayLogs.length}</span>
+              <span className="text-3xl font-bold text-stone-900">{activeLogs.length}</span>
               <span className="text-sm text-stone-500">meals logged</span>
             </div>
             <p className="text-xs text-stone-500 mt-3">
-              {todayLogs.length > 0 ? 'Logged using FAO Bangladesh 2013 verified foods.' : 'No meals logged yet today.'}
+              {activeLogs.length > 0 ? 'Logged using FAO Bangladesh 2013 verified foods.' : `No meals logged yet for ${isToday ? 'today' : selectedDate}.`}
             </p>
           </div>
           <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between">
@@ -199,12 +200,14 @@ export function DashboardView() {
 
       {/* Two Column Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Cols: Today's Logged Meals */}
+        {/* Left 2 Cols: Logged Meals for Selected Date */}
         <div className="lg:col-span-2 bg-white rounded-2xl border border-stone-200 p-6 shadow-xs">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-lg font-bold text-stone-900">Today's Food Log</h2>
-              <p className="text-xs text-stone-500">Showing meals recorded for {today}</p>
+              <h2 className="text-lg font-bold text-stone-900">
+                {isToday ? "Today's Food Log" : `Food Log for ${selectedDate}`}
+              </h2>
+              <p className="text-xs text-stone-500">Showing meals recorded for {selectedDate}</p>
             </div>
             <button
               onClick={() => setActiveTab('food-log')}
@@ -215,22 +218,35 @@ export function DashboardView() {
             </button>
           </div>
 
-          {todayLogs.length === 0 ? (
+          {activeLogs.length === 0 ? (
             <div className="text-center py-12 bg-stone-50 rounded-xl border border-dashed border-stone-200">
               <UtensilsCrossed className="w-10 h-10 text-stone-400 mx-auto mb-3" />
-              <p className="text-stone-700 font-medium text-sm">No meals logged for today yet.</p>
-              <p className="text-stone-500 text-xs mt-1">Use the Daily Food Log or AI Assistant to add local Bangladeshi meals.</p>
-              <button
-                onClick={() => setActiveTab('ai-assistant')}
-                className="mt-4 inline-flex items-center space-x-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-semibold shadow-xs hover:bg-emerald-700 transition-colors"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Try AI Food Assistant</span>
-              </button>
+              <p className="text-stone-700 font-medium text-sm">
+                No meals logged for {isToday ? 'today' : selectedDate} yet.
+              </p>
+              <p className="text-stone-500 text-xs mt-1">
+                Forgot to log earlier? You can select any date in the calendar and log meals retroactively or plan ahead!
+              </p>
+              <div className="mt-4 flex items-center justify-center space-x-3">
+                <button
+                  onClick={() => setActiveTab('food-log')}
+                  className="inline-flex items-center space-x-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-semibold shadow-xs hover:bg-emerald-700 transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Log Food for {selectedDate}</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('ai-assistant')}
+                  className="inline-flex items-center space-x-2 px-4 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl text-xs font-semibold border border-stone-200 transition-colors"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Ask AI Assistant</span>
+                </button>
+              </div>
             </div>
           ) : (
             <div className="space-y-3">
-              {todayLogs.map(log => (
+              {activeLogs.map(log => (
                 <div key={log.id} className="flex items-center justify-between p-3.5 bg-stone-50 rounded-xl border border-stone-100 hover:border-stone-200 transition-colors">
                   <div className="flex items-center space-x-3">
                     <div className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs">

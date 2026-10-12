@@ -4,7 +4,7 @@ import { NUTRIENT_REFERENCES_TEEN_14_18 } from '../data/nutrientReferences';
 import { Apple, AlertCircle, Info, Calendar, ShieldAlert } from 'lucide-react';
 
 export function VitaminsMineralsView() {
-  const { userProfile, foodLogs } = useApp();
+  const { userProfile, foodLogs, selectedDate } = useApp();
   const [viewTimeframe, setViewTimeframe] = useState<'today' | '7days' | '30days'>('today');
 
   const refValues = NUTRIENT_REFERENCES_TEEN_14_18[userProfile.referenceSex];
@@ -15,7 +15,7 @@ export function VitaminsMineralsView() {
   let daysCount = 1;
 
   if (viewTimeframe === 'today') {
-    filteredLogs = foodLogs.filter(l => l.date === todayStr);
+    filteredLogs = foodLogs.filter(l => l.date === selectedDate);
     daysCount = 1;
   } else if (viewTimeframe === '7days') {
     const cutoff = new Date();

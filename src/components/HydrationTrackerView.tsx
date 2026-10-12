@@ -4,9 +4,10 @@ import { getTodayDateString } from '../utils/calculations';
 import { Droplet, Plus, Minus, ShieldAlert, Info, CheckCircle2 } from 'lucide-react';
 
 export function HydrationTrackerView() {
-  const { userProfile, updateUserProfile, hydrationLogs, addWaterMl, removeWaterMl } = useApp();
+  const { userProfile, updateUserProfile, hydrationLogs, addWaterMl, removeWaterMl, selectedDate } = useApp();
   const today = getTodayDateString();
-  const waterToday = hydrationLogs[today] || 0;
+  const isToday = selectedDate === today;
+  const waterToday = hydrationLogs[selectedDate] || 0;
 
   // Reference recommendation for 14-18 yrs (National Academies): 3.3L total water males, 2.3L females (including food)
   const targetWaterMl = userProfile.referenceSex === 'male' ? 3300 : 2300;
@@ -14,7 +15,6 @@ export function HydrationTrackerView() {
   const glassesToday = Math.round((waterToday / glassMl) * 10) / 10;
   const pct = Math.min(100, Math.round((waterToday / targetWaterMl) * 100));
 
-  const [customMl, setCustomMl] = useState('250');
   const [showOrsInfo, setShowOrsInfo] = useState(false);
 
   return (
@@ -46,7 +46,9 @@ export function HydrationTrackerView() {
       <div className="bg-white rounded-2xl border border-stone-200 p-6 shadow-xs space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-wider text-stone-500 mb-1">Today's Hydration Total</div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-stone-500 mb-1">
+              {isToday ? "Today's Hydration Total" : `Hydration Total for ${selectedDate}`}
+            </div>
             <div className="flex items-baseline space-x-3">
               <span className="text-4xl font-bold text-stone-900">{(waterToday / 1000).toFixed(2)}</span>
               <span className="text-base text-stone-500">Litres ({waterToday} ml / ~{glassesToday} glasses)</span>
@@ -58,7 +60,7 @@ export function HydrationTrackerView() {
 
           <div className="flex items-center space-x-3">
             <button
-              onClick={() => removeWaterMl(today, glassMl)}
+              onClick={() => removeWaterMl(selectedDate, glassMl)}
               className="p-3 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl transition-colors font-bold flex items-center space-x-1"
               title="Remove one glass"
             >
@@ -66,7 +68,7 @@ export function HydrationTrackerView() {
               <span className="text-xs">-{glassMl}ml</span>
             </button>
             <button
-              onClick={() => addWaterMl(today, glassMl)}
+              onClick={() => addWaterMl(selectedDate, glassMl)}
               className="px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-colors font-bold text-xs shadow-sm flex items-center space-x-1.5"
             >
               <Plus className="w-4 h-4" />

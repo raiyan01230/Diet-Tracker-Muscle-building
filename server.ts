@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 import { foodDbService } from './src/services/foodDatabase.ts';
 import { parseLocalFoodQuery } from './src/utils/aiFoodParser.ts';
+import { dbService, DEFAULT_USER_UID } from './src/services/dbService.ts';
 
 dotenv.config();
 
@@ -149,6 +150,255 @@ Return ONLY a valid JSON array of objects with keys:
         success: false,
         error: error.message || 'Failed to generate AI recommendations.',
       });
+    }
+  });
+
+  // ==========================================
+  // Cloud SQL Database Persistence Endpoints
+  // ==========================================
+
+  // Fetch full user data across 30, 90, 365+ days
+  app.get('/api/data', async (req, res) => {
+    try {
+      const userUid = (req.query.uid as string) || DEFAULT_USER_UID;
+      const data = await dbService.getUserData(userUid);
+      res.json({ success: true, data });
+    } catch (err: any) {
+      console.error('Error fetching database data:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Update User Profile
+  app.put('/api/profile', async (req, res) => {
+    try {
+      const userUid = (req.query.uid as string) || req.body.id || DEFAULT_USER_UID;
+      await dbService.updateProfile(userUid, req.body);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error('Error updating user profile in DB:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Add single Food Log or Batch Food Logs
+  app.post('/api/food-logs', async (req, res) => {
+    try {
+      const userUid = (req.query.uid as string) || req.body.userId || DEFAULT_USER_UID;
+      if (Array.isArray(req.body.items)) {
+        await dbService.addFoodLogsBatch(userUid, req.body.items);
+      } else {
+        await dbService.addFoodLog(userUid, req.body);
+      }
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error('Error adding food log to DB:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Update Food Log
+  app.put('/api/food-logs/:id', async (req, res) => {
+    try {
+      const userUid = (req.query.uid as string) || DEFAULT_USER_UID;
+      await dbService.updateFoodLog(userUid, req.params.id, req.body);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error('Error updating food log in DB:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Delete Food Log
+  app.delete('/api/food-logs/:id', async (req, res) => {
+    try {
+      const userUid = (req.query.uid as string) || DEFAULT_USER_UID;
+      await dbService.deleteFoodLog(userUid, req.params.id);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error('Error deleting food log from DB:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Delete All Food Logs (Purge fake/test data)
+  app.delete('/api/food-logs/all', async (req, res) => {
+    try {
+      const userUid = (req.query.uid as string) || DEFAULT_USER_UID;
+      await dbService.clearAllFoodLogs(userUid);
+      res.json({ success: true, message: 'All food logs cleared successfully' });
+    } catch (err: any) {
+      console.error('Error clearing all food logs in DB:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post('/api/food-logs/clear-all', async (req, res) => {
+    try {
+      const userUid = (req.query.uid as string) || req.body?.uid || DEFAULT_USER_UID;
+      await dbService.clearAllFoodLogs(userUid);
+      res.json({ success: true, message: 'All food logs cleared successfully' });
+    } catch (err: any) {
+      console.error('Error clearing all food logs in DB:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Delete Meal Group
+  app.delete('/api/food-logs/group/:groupId', async (req, res) => {
+    try {
+      const userUid = (req.query.uid as string) || DEFAULT_USER_UID;
+      await dbService.deleteMealGroup(userUid, req.params.groupId);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error('Error deleting meal group from DB:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Add Growth Measurement
+  app.post('/api/growth', async (req, res) => {
+    try {
+      const userUid = (req.query.uid as string) || req.body.userId || DEFAULT_USER_UID;
+      await dbService.addGrowthMeasurement(userUid, req.body);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error('Error adding growth measurement to DB:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Delete Growth Measurement
+  app.delete('/api/growth/:id', async (req, res) => {
+    try {
+      const userUid = (req.query.uid as string) || DEFAULT_USER_UID;
+      await dbService.deleteGrowthMeasurement(userUid, req.params.id);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error('Error deleting growth measurement from DB:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Set / Update Hydration
+  app.post('/api/hydration', async (req, res) => {
+    try {
+      const userUid = (req.query.uid as string) || DEFAULT_USER_UID;
+      const { date, waterMl } = req.body;
+      await dbService.setHydration(userUid, date, waterMl);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error('Error saving hydration in DB:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Add Planned Meal
+  app.post('/api/planned-meals', async (req, res) => {
+    try {
+      const userUid = (req.query.uid as string) || DEFAULT_USER_UID;
+      await dbService.addPlannedMeal(userUid, req.body);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error('Error adding planned meal to DB:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Delete Planned Meal
+  app.delete('/api/planned-meals/:id', async (req, res) => {
+    try {
+      const userUid = (req.query.uid as string) || DEFAULT_USER_UID;
+      await dbService.deletePlannedMeal(userUid, req.params.id);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error('Error deleting planned meal from DB:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Upsert Habit
+  app.post('/api/habits', async (req, res) => {
+    try {
+      const userUid = (req.query.uid as string) || DEFAULT_USER_UID;
+      await dbService.upsertHabit(userUid, req.body);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error('Error saving habit to DB:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Toggle Habit completion date
+  app.put('/api/habits/:id/toggle', async (req, res) => {
+    try {
+      const userUid = (req.query.uid as string) || DEFAULT_USER_UID;
+      await dbService.toggleHabit(userUid, req.params.id, req.body.date);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error('Error toggling habit in DB:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Delete Habit
+  app.delete('/api/habits/:id', async (req, res) => {
+    try {
+      const userUid = (req.query.uid as string) || DEFAULT_USER_UID;
+      await dbService.deleteHabit(userUid, req.params.id);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error('Error deleting habit from DB:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Upsert Favorite Meal
+  app.post('/api/favorite-meals', async (req, res) => {
+    try {
+      const userUid = (req.query.uid as string) || DEFAULT_USER_UID;
+      await dbService.upsertFavoriteMeal(userUid, req.body);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error('Error saving favorite meal to DB:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Delete Favorite Meal
+  app.delete('/api/favorite-meals/:id', async (req, res) => {
+    try {
+      const userUid = (req.query.uid as string) || DEFAULT_USER_UID;
+      await dbService.deleteFavoriteMeal(userUid, req.params.id);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error('Error deleting favorite meal from DB:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Bulk Sync / Backup Snapshot to Database
+  app.post('/api/sync', async (req, res) => {
+    try {
+      const userUid = (req.query.uid as string) || DEFAULT_USER_UID;
+      await dbService.syncAllData(userUid, req.body);
+      const stats = await dbService.getDatabaseStats(userUid);
+      res.json({ success: true, stats });
+    } catch (err: any) {
+      console.error('Error syncing data to DB:', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Database Connection Status & Multi-year Retention Stats
+  app.get('/api/database/status', async (req, res) => {
+    try {
+      const userUid = (req.query.uid as string) || DEFAULT_USER_UID;
+      const stats = await dbService.getDatabaseStats(userUid);
+      res.json({ success: true, stats });
+    } catch (err: any) {
+      console.error('Database status error:', err);
+      res.status(500).json({ success: false, error: err.message });
     }
   });
 
