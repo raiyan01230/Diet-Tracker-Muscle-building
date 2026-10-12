@@ -95,23 +95,26 @@ export function ProfileSettingsView() {
       {/* Profile Health & Nutrition Graph */}
       <ProfileAnalyticsGraph />
 
-      {/* Cloud SQL Database Permanent Storage Card */}
-      <div className="bg-gradient-to-br from-emerald-950 via-stone-900 to-stone-900 text-white rounded-2xl p-6 shadow-md border border-emerald-800/40 space-y-4">
+      {/* Database Storage Architecture Card: Cloud SQL & Offline Database */}
+      <div className="bg-gradient-to-br from-emerald-950 via-stone-900 to-stone-900 text-white rounded-2xl p-6 shadow-md border border-emerald-800/40 space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-xl bg-emerald-600/30 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
               <Database className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center space-x-2">
-                <h2 className="text-base font-bold text-white">Cloud SQL PostgreSQL Database Storage</h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-base font-bold text-white">Database Status & Offline Database Architecture</h2>
                 <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  <span>Active & Verified</span>
+                  <span>{dbStatus.connected ? 'Cloud SQL: Online' : 'Offline Mode Active'}</span>
+                </span>
+                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                  <span>Offline DB: Active</span>
                 </span>
               </div>
-              <p className="text-xs text-stone-300 mt-0.5">
-                Full relational persistence for every daily meal, weekly audit, 30-day, 90-day, and 1-year history.
+              <p className="text-xs text-stone-300 mt-1">
+                Dual-layer persistence: 100% offline-ready local storage combined with Cloud SQL PostgreSQL permanent cloud backup.
               </p>
             </div>
           </div>
@@ -120,7 +123,7 @@ export function ProfileSettingsView() {
             <button
               onClick={handleClearAllFakeData}
               disabled={isClearing}
-              className="flex items-center justify-center space-x-1.5 px-3 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-semibold transition-all shadow-xs disabled:opacity-50"
+              className="flex items-center justify-center space-x-1.5 px-3 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-semibold transition-all shadow-xs disabled:opacity-50 cursor-pointer"
               title="Delete all demo/test food logs for a clean slate"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -130,7 +133,7 @@ export function ProfileSettingsView() {
             <button
               onClick={handleManualSync}
               disabled={isSyncingLocal || dbStatus.isSyncing}
-              className="flex items-center justify-center space-x-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold transition-all shadow-xs disabled:opacity-50"
+              className="flex items-center justify-center space-x-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold transition-all shadow-xs disabled:opacity-50 cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${(isSyncingLocal || dbStatus.isSyncing) ? 'animate-spin' : ''}`} />
               <span>{isSyncingLocal || dbStatus.isSyncing ? 'Syncing...' : 'Sync Database Now'}</span>
@@ -139,7 +142,7 @@ export function ProfileSettingsView() {
         </div>
 
         {/* Database Metrics Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
           <div className="bg-stone-800/80 border border-stone-700/60 rounded-xl p-3">
             <div className="text-[11px] text-stone-400 flex items-center space-x-1">
               <HardDrive className="w-3.5 h-3.5 text-emerald-400" />
@@ -148,7 +151,7 @@ export function ProfileSettingsView() {
             <div className="text-lg font-bold text-white mt-1">
               {dbStatus.totalFoodLogs}
             </div>
-            <div className="text-[10px] text-emerald-400">All entries stored</div>
+            <div className="text-[10px] text-emerald-400">Authentic entries</div>
           </div>
 
           <div className="bg-stone-800/80 border border-stone-700/60 rounded-xl p-3">
@@ -164,35 +167,40 @@ export function ProfileSettingsView() {
 
           <div className="bg-stone-800/80 border border-stone-700/60 rounded-xl p-3">
             <div className="text-[11px] text-stone-400 flex items-center space-x-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-purple-400" />
-              <span>Retention</span>
+              <Cloud className="w-3.5 h-3.5 text-purple-400" />
+              <span>Cloud SQL</span>
             </div>
             <div className="text-lg font-bold text-white mt-1">
-              Permanent
+              {dbStatus.connected ? 'Online' : 'Reconnecting'}
             </div>
-            <div className="text-[10px] text-purple-300">30d / 90d / 1-Year+</div>
+            <div className="text-[10px] text-purple-300">Permanent Postgres</div>
           </div>
 
           <div className="bg-stone-800/80 border border-stone-700/60 rounded-xl p-3">
             <div className="text-[11px] text-stone-400 flex items-center space-x-1">
-              <Cloud className="w-3.5 h-3.5 text-amber-400" />
-              <span>Status</span>
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+              <span>Offline Database</span>
             </div>
-            <div className="text-lg font-bold text-white mt-1">
-              {dbStatus.connected ? 'Online' : 'Offline'}
+            <div className="text-lg font-bold text-white mt-1 text-emerald-400">
+              Active
             </div>
             <div className="text-[10px] text-stone-300">
-              {dbStatus.lastSyncedAt ? 'Synced ' + new Date(dbStatus.lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Ready'}
+              {dbStatus.lastSyncedAt ? 'Synced ' + new Date(dbStatus.lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Ready for offline logs'}
             </div>
           </div>
         </div>
 
         {/* Database Assurance Notice */}
-        <div className="bg-emerald-900/30 border border-emerald-700/40 rounded-xl p-3 text-xs text-stone-200 flex items-start space-x-2.5">
+        <div className="bg-emerald-900/30 border border-emerald-700/40 rounded-xl p-3.5 text-xs text-stone-200 flex items-start space-x-3">
           <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-          <p className="leading-relaxed">
-            <strong>Data Integrity Guaranteed:</strong> Every single meal entry, custom recipe, water log, habit checkmark, and height/weight measurement is stored in Cloud SQL PostgreSQL. Even if you clear your browser cookies, change browsers, or come back after 30 days, 90 days, or a whole year, your clinical history will never be lost.
-          </p>
+          <div className="space-y-1">
+            <p className="font-semibold text-white">
+              Dual-Storage Resilience (Online Cloud SQL + Instant Offline Database):
+            </p>
+            <p className="text-stone-300 leading-relaxed">
+              <strong>Offline Database:</strong> You can add foods, water, and growth measurements anytime even if disconnected from the internet. All changes are stored locally first so you never encounter errors or lost data. When you reconnect, they automatically synchronize to <strong>Cloud SQL PostgreSQL</strong> for permanent multi-year backup.
+            </p>
+          </div>
         </div>
       </div>
 

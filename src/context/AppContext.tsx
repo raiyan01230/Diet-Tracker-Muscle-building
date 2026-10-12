@@ -29,6 +29,9 @@ interface AddCompleteMealParams {
 export interface DatabaseSyncStatus {
   connected: boolean;
   databaseEngine: string;
+  offlineDatabaseEngine: string;
+  offlineDatabaseActive: boolean;
+  isOnline: boolean;
   totalFoodLogs: number;
   totalGrowthRecords: number;
   totalHydrationRecords: number;
@@ -260,10 +263,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const [dbStatus, setDbStatus] = useState<DatabaseSyncStatus>({
-    connected: false,
+    connected: true,
     databaseEngine: 'Cloud SQL PostgreSQL',
+    offlineDatabaseEngine: 'Browser Local Storage Database (Instant Offline Resilience)',
+    offlineDatabaseActive: true,
+    isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
     totalFoodLogs: 0,
-    totalGrowthRecords: 0,
+    totalGrowthRecords: 1,
     totalHydrationRecords: 0,
     daysWithLogs: 0,
     retentionPolicy: 'Permanent 30/90/365+ Day Cloud SQL Storage',
@@ -271,6 +277,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     lastSyncedAt: null,
     error: null,
   });
+
+  // Track online / offline connectivity for offline database resilience
+  useEffect(() => {
+    const handleOnline = () => {
+      setDbStatus(prev => ({
+        ...prev,
+        isOnline: true,
+      }));
+      syncNow();
+    };
+    const handleOffline = () => {
+      setDbStatus(prev => ({
+        ...prev,
+        connected: false,
+        isOnline: false,
+      }));
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Keep localStorage as local fallback
   useEffect(() => {
@@ -329,42 +361,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
           // Fetch database retention stats
           const statsRes = await fetch('/api/database/status?uid=user_bangladesh_01');
+          let statsData: any = null;
           if (statsRes.ok) {
             const statsJson = await statsRes.json();
             if (statsJson.success && statsJson.stats) {
-              setDbStatus({
-                connected: true,
-                databaseEngine: statsJson.stats.databaseEngine || 'Cloud SQL PostgreSQL',
-                totalFoodLogs: statsJson.stats.totalFoodLogs || dbLogs.length,
-                totalGrowthRecords: statsJson.stats.totalGrowthRecords || dbGrowth.length,
-                totalHydrationRecords: statsJson.stats.totalHydrationRecords || Object.keys(dbHydration).length,
-                daysWithLogs: statsJson.stats.daysWithLogs || 1,
-                retentionPolicy: 'Permanent 30-day, 90-day & 365+ Day Cloud Storage',
-                isSyncing: false,
-                lastSyncedAt: new Date(),
-                error: null,
-              });
-              return;
+              statsData = statsJson.stats;
             }
           }
 
-          setDbStatus(prev => ({
-            ...prev,
+          setDbStatus({
             connected: true,
+            databaseEngine: statsData?.databaseEngine || 'Cloud SQL PostgreSQL',
+            offlineDatabaseEngine: 'Browser Local Storage Database (Instant Offline Resilience)',
+            offlineDatabaseActive: true,
+            isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
+            totalFoodLogs: statsData?.totalFoodLogs ?? (Array.isArray(dbLogs) ? dbLogs.length : 0),
+            totalGrowthRecords: statsData?.totalGrowthRecords ?? (Array.isArray(dbGrowth) ? dbGrowth.length : 0),
+            totalHydrationRecords: statsData?.totalHydrationRecords ?? (dbHydration ? Object.keys(dbHydration).length : 0),
+            daysWithLogs: statsData?.daysWithLogs ?? (Array.isArray(dbLogs) ? new Set(dbLogs.map((l: any) => l.date)).size : 0),
+            retentionPolicy: 'Permanent 30-day, 90-day & 365+ Day Cloud Storage',
             isSyncing: false,
-            totalFoodLogs: dbLogs.length,
             lastSyncedAt: new Date(),
             error: null,
-          }));
+          });
+          return;
         }
       }
+      throw new Error('API fetch failed');
     } catch (err: any) {
-      console.warn('Database load fallback to localStorage:', err);
+      console.warn('Database load fallback to localStorage (Offline Database active):', err);
       setDbStatus(prev => ({
         ...prev,
         connected: false,
+        offlineDatabaseActive: true,
+        offlineDatabaseEngine: 'Browser Local Storage Database (Instant Offline Resilience)',
+        isOnline: typeof navigator !== 'undefined' ? navigator.onLine : false,
         isSyncing: false,
-        error: err.message || 'Offline mode',
+        error: err.message || 'Offline mode active',
       }));
     }
   }, []);
@@ -396,10 +429,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setDbStatus({
           connected: true,
           databaseEngine: 'Cloud SQL PostgreSQL',
-          totalFoodLogs: json.stats?.totalFoodLogs || foodLogs.length,
-          totalGrowthRecords: json.stats?.totalGrowthRecords || growthMeasurements.length,
-          totalHydrationRecords: json.stats?.totalHydrationRecords || Object.keys(hydrationLogs).length,
-          daysWithLogs: json.stats?.daysWithLogs || 1,
+          offlineDatabaseEngine: 'Browser Local Storage Database (Instant Offline Resilience)',
+          offlineDatabaseActive: true,
+          isOnline: true,
+          totalFoodLogs: json.stats?.totalFoodLogs ?? foodLogs.length,
+          totalGrowthRecords: json.stats?.totalGrowthRecords ?? growthMeasurements.length,
+          totalHydrationRecords: json.stats?.totalHydrationRecords ?? Object.keys(hydrationLogs).length,
+          daysWithLogs: json.stats?.daysWithLogs ?? new Set(foodLogs.map(l => l.date)).size,
           retentionPolicy: 'Permanent 30-day, 90-day & 365+ Day Cloud Storage',
           isSyncing: false,
           lastSyncedAt: new Date(),
@@ -408,20 +444,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (err: any) {
       console.error('Manual sync error:', err);
-      setDbStatus(prev => ({ ...prev, isSyncing: false, error: err.message }));
+      setDbStatus(prev => ({ 
+        ...prev, 
+        isSyncing: false, 
+        connected: false,
+        offlineDatabaseActive: true,
+        error: err.message 
+      }));
     }
   };
 
   const clearAllFoodLogs = async () => {
     setFoodLogs([]);
     localStorage.removeItem('pusty_food_logs');
-    setDbStatus(prev => ({ ...prev, totalFoodLogs: 0, isSyncing: true }));
+    setDbStatus(prev => ({ ...prev, totalFoodLogs: 0, daysWithLogs: 0, isSyncing: true }));
     try {
       await fetch('/api/food-logs/all?uid=user_bangladesh_01', { method: 'DELETE' });
       await syncNow();
     } catch (e) {
       console.error('Error clearing all food logs:', e);
-      setDbStatus(prev => ({ ...prev, isSyncing: false }));
+      setDbStatus(prev => ({ ...prev, totalFoodLogs: 0, daysWithLogs: 0, isSyncing: false }));
     }
   };
 

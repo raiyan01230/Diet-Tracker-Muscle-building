@@ -64,15 +64,16 @@ export function Navbar({ onOpenTestModal }: NavbarProps) {
           <div className="flex items-center space-x-3">
             <div 
               onClick={() => setActiveTab('profile')}
-              className={`hidden lg:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors border ${
+              className={`hidden lg:flex items-center space-x-2 px-2.5 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors border ${
                 dbStatus.connected 
                   ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100' 
-                  : 'bg-amber-50 text-amber-800 border-amber-200'
+                  : 'bg-stone-50 text-stone-800 border-stone-300 hover:bg-stone-100'
               }`}
-              title="Cloud SQL PostgreSQL Database stores all daily, weekly, 30-day, 90-day, and multi-year records."
+              title="Dual Storage Architecture: Cloud SQL PostgreSQL (Cloud Persistence) and Offline Database (Local Storage Fallback)"
             >
               <Database className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Cloud SQL: {dbStatus.connected ? `${dbStatus.totalFoodLogs} Entries Stored` : 'Syncing...'}</span>
+              <span>{dbStatus.connected ? `Cloud SQL: Online (${dbStatus.totalFoodLogs} logs)` : 'Offline Database: Active'}</span>
+              <span className={`w-1.5 h-1.5 rounded-full ${dbStatus.connected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></span>
             </div>
 
             <button

@@ -35,10 +35,13 @@ export function RoutinePlannerView() {
     addPlannedMeal, 
     confirmPlannedMealAsEaten, 
     deletePlannedMeal,
-    userProfile 
+    userProfile,
+    selectedDate
   } = useApp();
 
   const today = getTodayDateString();
+  const activeDate = selectedDate || today;
+  const isToday = activeDate === today;
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   // Filter or active habits
@@ -81,12 +84,12 @@ export function RoutinePlannerView() {
   }, []);
 
   const handleToggle = (habit: HabitItem) => {
-    toggleHabit(habit.id, today);
-    const wasCompleted = habit.completedDates.includes(today);
+    toggleHabit(habit.id, activeDate);
+    const wasCompleted = habit.completedDates.includes(activeDate);
     if (!wasCompleted) {
-      setSuccessMsg(`Great job! Completed "${habit.title}" for today. Keep building positive routines! 🌟`);
+      setSuccessMsg(`Great job! Completed "${habit.title}" for ${isToday ? 'today' : activeDate}. Keep building positive routines! 🌟`);
     } else {
-      setSuccessMsg(`Marked "${habit.title}" as pending for today.`);
+      setSuccessMsg(`Marked "${habit.title}" as pending for ${isToday ? 'today' : activeDate}.`);
     }
     setTimeout(() => setSuccessMsg(null), 3000);
   };
